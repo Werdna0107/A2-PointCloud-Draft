@@ -8,7 +8,7 @@ The main goal is simple: turn a point cloud slice into a clean CAD-ready referen
 
 ## Video demo
 
-[Watch the video on YouTube](YOUTUBE_LINK_HERE)
+[Watch the video on YouTube](https://youtu.be/o1aOV6jLIGU)
 ## Features
 
 * Open and view `.las` point clouds
