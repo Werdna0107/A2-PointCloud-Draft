@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>PointCloudViewer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{font-family:-apple-system,sans-serif;overflow:hidden;height:100%;width:100%;touch-action:none}
+#container{width:100%;height:100%;position:relative;background:linear-gradient(135deg,#0d1b2a 0%,#1b263b 50%,#0d1b2a 100%)}
+#canvas,#hud{position:absolute;top:0;left:0;width:100%;height:100%;display:block}
+#canvas{z-index:1}
+#hud{z-index:60;pointer-events:none}
+.header{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:8px;z-index:100}
+.logo{width:28px;height:28px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10px;color:#000}
+.app-title{font-size:13px;font-weight:500;color:#fff}
+.viewcube-container{position:absolute;top:12px;right:12px;width:120px;height:120px;z-index:100}
+#viewcube{width:100%;height:100%;cursor:pointer}
+.panel{position:absolute;left:0;top:50%;transform:translateY(-50%);background:rgba(20,20,30,0.92);border:1px solid rgba(255,255,255,0.08);border-left:none;border-radius:0 10px 10px 0;padding:12px;padding-left:14px;width:210px;z-index:100;backdrop-filter:blur(12px);transition:transform 0.3s;max-height:calc(100vh - 24px);overflow:auto}
+.panel.hidden{transform:translateY(-50%) translateX(-100%)}
+.toggle-panel{position:absolute;top:50%;right:-28px;transform:translateY(-50%);width:28px;height:50px;background:rgba(20,20,30,0.92);border:1px solid rgba(255,255,255,0.08);border-left:none;border-radius:0 8px 8px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#888}
+.toggle-panel svg{width:16px;height:16px;transition:transform 0.3s}
+.panel.hidden .toggle-panel svg{transform:rotate(180deg)}
+.section{margin-bottom:12px}.section:last-child{margin-bottom:0}
+.title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:#666;margin-bottom:6px}
+.btn{width:100%;padding:8px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#ccc;font-size:11px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.btn:active{background:rgba(255,255,255,0.1)}.btn.active{background:#00a8e8;color:#000;border-color:#00a8e8}
+.btn-group{display:flex;gap:3px}.btn-group .btn{flex:1;padding:6px 4px;font-size:9px}
+.slider-box{margin-bottom:8px}.slider-label{display:flex;justify-content:space-between;font-size:9px;color:#666;margin-bottom:4px}.slider-val{color:#aaa}
+input[type=range]{width:100%;height:3px;background:#333;border-radius:2px;-webkit-appearance:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:#00a8e8;border-radius:50%;cursor:pointer}
+.tools{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(20,20,30,0.92);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:4px;display:flex;gap:2px;z-index:100;backdrop-filter:blur(12px)}
+.tool{width:36px;height:36px;background:transparent;border:none;border-radius:6px;color:#666;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tool:active{background:rgba(255,255,255,0.1)}.tool.active{background:#00a8e8;color:#000}.tool svg{width:18px;height:18px}
+.divider{width:1px;background:rgba(255,255,255,0.1);margin:4px 2px}
+.info{position:absolute;right:12px;bottom:12px;background:rgba(20,20,30,0.92);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px 12px;z-index:100;backdrop-filter:blur(12px)}
+.info-row{display:flex;justify-content:space-between;gap:16px;font-size:10px;color:#666}.info-row span:last-child{color:#aaa}
+.measure{position:absolute;right:12px;top:140px;background:rgba(20,20,30,0.92);border:1px solid #00a8e8;border-radius:8px;padding:12px;min-width:160px;z-index:100;backdrop-filter:blur(12px);display:none}
+.measure.visible{display:block}.measure-title{font-size:10px;font-weight:600;margin-bottom:6px;color:#00a8e8}
+.measure-value{font-size:20px;font-weight:600;color:#fff;margin-bottom:6px}.measure-details{font-size:9px;color:#666;line-height:1.4}
+.measure-details span{color:#aaa}.measure-hint{font-size:8px;color:#444;margin-top:6px}
+.drop{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,168,232,0.15);border:2px dashed #00a8e8;display:none;align-items:center;justify-content:center;z-index:1000}
+.drop.active{display:flex}.drop-text{font-size:16px;font-weight:500;color:#fff}.drop-hint{font-size:11px;color:#888;margin-top:4px}
+.welcome{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:50}
+.welcome-title{font-size:20px;font-weight:600;margin-bottom:6px;color:#fff}.welcome-hint{font-size:12px;color:#666;margin-bottom:14px}
+.welcome-btn{padding:10px 24px;background:#00a8e8;border:none;border-radius:8px;color:#000;font-size:13px;font-weight:600;cursor:pointer}
+.loading{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(13,27,42,0.95);display:none;align-items:center;justify-content:center;z-index:2000}
+.loading.active{display:flex}.spinner{width:32px;height:32px;border:2px solid #333;border-top-color:#00a8e8;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}.loading-text{font-size:11px;color:#666}
+#fileInput{display:none}.measuring #canvas{cursor:none}
+.walking #canvas{cursor:default}
+.walking.measuring #canvas{cursor:none}
+.select-box,.num-box{width:100%;padding:6px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#ccc;font-size:10px;outline:none}
+.select-box option{background:#15151f;color:#ddd}.row{display:flex;gap:4px;margin-bottom:5px}.row .btn{flex:1}.field-label{font-size:8px;color:#666;margin:4px 0 3px}.status{min-height:20px;font-size:8px;line-height:1.3;color:#888;margin-top:5px}.warn{color:#ffcc66}.ok{color:#70d98b}
+
+@media(max-width:768px){
+.panel{width:170px;padding:10px}
+.viewcube-container{width:70px;height:70px;top:8px;right:8px}
+.header{top:8px;left:8px}
+.logo{width:24px;height:24px;font-size:9px}
+.app-title{font-size:11px}
+.tools{bottom:8px;padding:3px}
+.tool{width:30px;height:30px}
+.tool svg{width:16px;height:16px}
+.info{display:none}
+.measure{top:90px;right:8px;padding:10px;min-width:140px}
+}
+</style>
+</head>
+<body>
+<div id="container">
+<canvas id="canvas"></canvas>
+<canvas id="hud"></canvas>
+<div class="header"><div class="logo">A2</div><div class="app-title">PointCloudViewer</div></div>
+<div class="viewcube-container"><canvas id="viewcube"></canvas></div>
+<div class="panel" id="panel">
+<div class="toggle-panel" id="togglePanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></div>
+<div class="section"><div class="title">File</div><button class="btn" id="openBtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Open</button></div>
+<div class="section"><div class="title">Color</div><div class="btn-group"><button class="btn active" data-mode="rgb">RGB</button><button class="btn" data-mode="height">H</button><button class="btn" data-mode="mono">M</button></div></div>
+<div class="section"><div class="title">Display</div>
+<div class="slider-box"><div class="slider-label"><span>Size</span><span class="slider-val" id="sizeVal">1.0</span></div><input type="range" id="ptSize" min="0.1" max="5" step="0.1" value="1"></div>
+<div class="slider-box"><div class="slider-label"><span>Opacity</span><span class="slider-val" id="opacityVal">100%</span></div><input type="range" id="opacity" min="10" max="100" value="100"></div>
+<div class="btn-group"><button class="btn active" id="perspBtn">Persp</button><button class="btn" id="orthoBtn">Ortho</button><button class="btn" id="topBtn">Top</button></div>
+<div class="row" style="margin-top:5px"><button class="btn active" id="crossBtn">✚ Cross</button><button class="btn" id="magBtn">🔍 Magnifier</button></div>
+</div>
+<div class="section"><div class="title">Align</div>
+<select class="select-box" id="alignPlane"><option value="XY">XY → Z=0</option><option value="XZ">XZ/ZX → Y=0</option><option value="YZ">YZ/ZY → X=0</option></select>
+<div class="row" style="margin-top:5px"><button class="btn" id="alignPickBtn">Pick 3 pts</button><button class="btn" id="alignResetBtn">Reset</button></div>
+<div class="row"><button class="btn" id="alignSaveLasBtn">Save aligned LAS</button></div>
+<div class="status" id="alignStatus">Выберите плоскость и нажмите Pick 3 pts</div>
+</div>
+<div class="section"><div class="title">Slice</div>
+<select class="select-box" id="slicePlane"><option value="XY">XY: Z layer</option><option value="XZ">XZ/ZX: Y layer</option><option value="YZ">YZ/ZY: X layer</option></select>
+<div class="row"><div style="flex:1"><div class="field-label">Start</div><input class="num-box" id="sliceStart" type="number" step="0.01" value="0"></div><div style="flex:1"><div class="field-label">Width, m</div><input class="num-box" id="sliceWidth" type="number" step="0.01" value="0.30"></div></div>
+<div class="row"><button class="btn" id="sliceApplyBtn">Show slice</button><button class="btn" id="sliceResetBtn">Reset</button></div>
+<div class="status" id="sliceStatus">Например XY + 1.2 + 0.3 = Z 1.2…1.5 м</div>
+</div>
+<div class="section"><div class="title">PNG export</div>
+<select class="select-box" id="pngBg"><option value="transparent">Transparent background</option><option value="white">White background</option></select>
+<div class="row"><div style="flex:1"><div class="field-label">Rotate, deg</div><input class="num-box" id="pngRotate" type="number" step="1" value="0"></div></div>
+<div class="row"><button class="btn" id="pngSaveBtn">Save clean PNG</button></div>
+<div class="row"><button class="btn" id="pngDxfBtn">Save PNG in DXF</button></div>
+<div class="status" id="pngStatus">Экспортирует видимое облако/срез красным цветом + длинный масштабный образец.</div>
+</div>
+<div class="section"><div class="title">Drawing</div>
+<div class="row"><button class="btn" id="drawPickBtn">Pick point</button><button class="btn" id="drawUndoBtn">Undo last</button></div>
+<div class="row"><button class="btn" id="drawMeasureBtn">Measure</button><button class="btn" id="drawCancelBtn">Cancel</button></div>
+<div class="row"><button class="btn" id="drawOrthoBtn">Ortho align</button><button class="btn" id="drawOrthoUndoBtn">Undo ortho</button></div>
+<div class="row"><button class="btn" id="drawExportDxfBtn">Export DXF</button></div>
+<div class="status" id="drawStatus">Работает только в режиме Slice: сначала нажмите Show slice</div>
+</div>
+</div>
+<div class="tools">
+<button class="tool active" data-tool="nav" title="Navigate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+<button class="tool" id="walkBtn" title="First-person walk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><path d="M12 7v6M8 11l4 2 4-2M9 21l3-8 3 8"/></svg></button>
+<div class="divider"></div>
+<button class="tool" data-tool="dist" title="Distance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="4"/><circle cx="4" cy="20" r="2" fill="currentColor"/><circle cx="20" cy="4" r="2" fill="currentColor"/></svg></button>
+<div class="divider"></div>
+<button class="tool" id="clearBtn" title="Clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+</div>
+<div class="measure" id="measureBox"><div class="measure-title">📏 DISTANCE</div><div class="measure-value" id="mVal">0.000 m</div><div class="measure-details" id="mDetails"></div><div class="measure-hint">ESC to exit</div></div>
+<div class="info"><div class="info-row"><span>Pts</span><span id="ptCount">0</span></div><div class="info-row"><span>FPS</span><span id="fpsVal">60</span></div></div>
+<div class="drop" id="dropZone"><div style="text-align:center"><div class="drop-text">Drop File</div><div class="drop-hint">.las only</div></div></div>
+<div class="welcome" id="welcomeBox"><div class="welcome-title">PointCloudViewer</div><div class="welcome-hint">Open uncompressed .LAS</div><button class="welcome-btn" id="welcomeBtn">Open File</button></div>
+<div class="loading" id="loadingBox"><div><div class="spinner"></div><div class="loading-text" id="loadingText">Loading...</div></div></div>
+<input type="file" id="fileInput" accept=".las">
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const VS=`attribute vec3 color;varying vec3 vC;uniform float ps,sh,ortho;void main(){vC=color;vec4 mv=modelViewMatrix*vec4(position,1.);gl_PointSize=ortho>.5?ps:clamp(ps*sh*.01/-mv.z,1.,50.);gl_Position=projectionMatrix*mv;}`;
+const FS=`varying vec3 vC;uniform float op;void main(){vec2 c=gl_PointCoord-.5;float d=length(c);if(d>.5)discard;gl_FragColor=vec4(vC,(1.-smoothstep(.3,.5,d))*op);}`;
+class App{
+constructor(){
+this.scene=new THREE.Scene();
+this.pCam=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.0000000001,1e15);
+this.oCam=new THREE.OrthographicCamera(-1,1,1,-1,0.0000000001,1e15);
+this.cam=this.pCam;this.proj='persp';
+this.rend=new THREE.WebGLRenderer({canvas:document.getElementById('canvas'),antialias:true,alpha:true,logarithmicDepthBuffer:true,preserveDrawingBuffer:true});
+this.rend.setSize(innerWidth,innerHeight);
+this.rend.setPixelRatio(Math.min(devicePixelRatio,2));
+this.rend.setClearColor(0,0);
+this.cloud=null;this.D={};this.bounds=null;this.sz=1;
+this.tgt=new THREE.Vector3();
+this.camDist=10;
+this.quat=new THREE.Quaternion();
+this.isDrag=false;this.isPan=false;
+this.lastX=0;this.lastY=0;
+this.pinchDist=0;
+this.ptSz=1;this.op=1;this.cMode='rgb';
+this.tool='nav';this.mPts=[];this.mH=[];
+this.alignPlane='XY';this.alignPts=[];this.alignH=[];this.sliceState=null;
+this.drawShapes=[];this.drawH=[];this.drawMeasured=false;this.drawOrthoBackup=null;this.currentShape=null;
+this.hud=document.getElementById('hud');this.hctx=this.hud?this.hud.getContext('2d'):null;this.mouseX=0;this.mouseY=0;this.mouseIn=false;this.crosshairOn=true;this.magnifierOn=false;this.dpr=Math.min(devicePixelRatio||1,2);
+this.fullLasSource=null;this.alignMatrix=new THREE.Matrix4();this.maxPreviewPoints=30000000;this.maxFullSlicePoints=12000000;
+this.ray=new THREE.Raycaster();this.ray.params.Points.threshold=.02;
+this.walkMode=false;this.walkKeys=Object.create(null);this.walkPos=new THREE.Vector3();this.walkVelZ=0;this.walkYaw=0;this.walkPitch=0;this.walkRoll=0;this.walkLook=false;this.walkFloor=null;this.walkEyeHeight=1.65;this.walkSpeed=8;this.walkRunSpeed=20;this.walkGravity=9.81;this.walkRollSpeed=Math.PI*.75;this.frameT=performance.now();
+this.fc=0;this.lt=performance.now();
+this.resizeHUD();this.initCube();this.updateCam();this.bindEvents();this.animate();
+}
+initCube(){
+const c=document.getElementById('viewcube');if(!c)return;
+this.vcScene=new THREE.Scene();
+this.vcCam=new THREE.PerspectiveCamera(35,1,0.1,100);
+this.vcRend=new THREE.WebGLRenderer({canvas:c,antialias:true,alpha:true});
+const sz=window.innerWidth<768?70:120;
+this.vcRend.setSize(sz,sz);
+this.vcRend.setPixelRatio(devicePixelRatio);
+this.vcRend.setClearColor(0,0);
+const geo=new THREE.BoxGeometry(1.5,1.5,1.5);
+const labels=['R','L','T','B','F','K'];
+const mats=labels.map(l=>{
+const cv=document.createElement('canvas');cv.width=cv.height=128;
+const ctx=cv.getContext('2d');
+ctx.fillStyle='#1a2a3a';ctx.fillRect(0,0,128,128);
+ctx.strokeStyle='#2a4a6a';ctx.lineWidth=2;ctx.strokeRect(2,2,124,124);
+ctx.fillStyle='#8ac';ctx.font='bold 44px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+ctx.fillText(l,64,64);
+return new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv)});
+});
+this.vcScene.add(new THREE.Mesh(geo,mats));
+this.vcScene.add(new THREE.AxesHelper(1.2));
+}
+bindEvents(){
+const cv=document.getElementById('canvas');
+document.getElementById('openBtn').onclick=()=>document.getElementById('fileInput').click();
+document.getElementById('welcomeBtn').onclick=()=>document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange=e=>{if(e.target.files[0])this.load(e.target.files[0]);};
+document.getElementById('togglePanel').onclick=()=>document.getElementById('panel').classList.toggle('hidden');
+['dragenter','dragover'].forEach(t=>document.body.addEventListener(t,e=>{e.preventDefault();document.getElementById('dropZone').classList.add('active');}));
+document.body.addEventListener('dragleave',e=>{e.preventDefault();if(!e.relatedTarget)document.getElementById('dropZone').classList.remove('active');});
+document.body.addEventListener('drop',e=>{e.preventDefault();document.getElementById('dropZone').classList.remove('active');if(e.dataTransfer.files[0])this.load(e.dataTransfer.files[0]);});
+cv.addEventListener('mousedown',e=>{
+this.updateCursor(e.clientX,e.clientY);
+if(this.walkMode){
+if(e.button===0){
+if(this.tool==='dist'){this.doMeasure(e.clientX,e.clientY);e.preventDefault();return;}
+if(this.tool==='align'){this.doAlignPick(e.clientX,e.clientY);e.preventDefault();return;}
+if(this.tool==='draw'){this.doDrawPick(e.clientX,e.clientY);e.preventDefault();return;}
+}
+this.lastX=e.clientX;this.lastY=e.clientY;e.preventDefault();return;
+}
+// Средняя/правая кнопка всегда панорамирует, даже в Pick/Align/Measure.
+if(e.button===1||e.button===2){this.isPan=true;this.lastX=e.clientX;this.lastY=e.clientY;e.preventDefault();return;}
+if(e.button===0){
+if(this.tool==='dist'){this.doMeasure(e.clientX,e.clientY);e.preventDefault();return;}
+if(this.tool==='align'){this.doAlignPick(e.clientX,e.clientY);e.preventDefault();return;}
+if(this.tool==='draw'){this.doDrawPick(e.clientX,e.clientY);e.preventDefault();return;}
+this.isDrag=true;
+}
+this.lastX=e.clientX;this.lastY=e.clientY;
+e.preventDefault();
+});
+cv.addEventListener('mousemove',e=>{
+this.updateCursor(e.clientX,e.clientY);
+const dx=e.clientX-this.lastX,dy=e.clientY-this.lastY;
+if(this.walkMode){
+this.lastX=e.clientX;this.lastY=e.clientY;return;
+}
+if(this.isPan)this.pan(dx,dy);
+else if(this.tool==='nav'&&this.isDrag)this.rotate(dx,dy);
+this.lastX=e.clientX;this.lastY=e.clientY;
+});
+cv.addEventListener('mouseup',()=>{this.isDrag=false;this.isPan=false;this.walkLook=false;});
+cv.addEventListener('mouseenter',e=>{this.mouseIn=true;this.updateCursor(e.clientX,e.clientY);});
+cv.addEventListener('mouseleave',()=>{this.isDrag=false;this.isPan=false;this.mouseIn=false;this.clearHUD();});
+cv.addEventListener('wheel',e=>{
+e.preventDefault();
+if(this.walkMode)return;
+this.camDist*=e.deltaY>0?1.08:0.92;
+this.camDist=Math.max(1e-20,Math.min(1e20,this.camDist));
+this.updateCam();
+},{passive:false});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('touchstart',e=>{
+e.preventDefault();
+if(this.tool==='dist'&&e.touches.length===1){
+this.doMeasure(e.touches[0].clientX,e.touches[0].clientY);
+return;
+}
+if(this.tool==='align'&&e.touches.length===1){
+this.doAlignPick(e.touches[0].clientX,e.touches[0].clientY);
+return;
+}
+if(this.tool==='draw'&&e.touches.length===1){
+this.doDrawPick(e.touches[0].clientX,e.touches[0].clientY);
+return;
+}
+if(e.touches.length===1){
+this.isDrag=true;
+this.lastX=e.touches[0].clientX;
+this.lastY=e.touches[0].clientY;
+}else if(e.touches.length===2){
+this.isDrag=false;
+const dx=e.touches[0].clientX-e.touches[1].clientX;
+const dy=e.touches[0].clientY-e.touches[1].clientY;
+this.pinchDist=Math.sqrt(dx*dx+dy*dy);
+this.lastX=(e.touches[0].clientX+e.touches[1].clientX)/2;
+this.lastY=(e.touches[0].clientY+e.touches[1].clientY)/2;
+}
+},{passive:false});
+cv.addEventListener('touchmove',e=>{
+e.preventDefault();
+if(e.touches.length===1&&this.isDrag){
+const dx=e.touches[0].clientX-this.lastX;
+const dy=e.touches[0].clientY-this.lastY;
+this.rotate(dx,dy);
+this.lastX=e.touches[0].clientX;
+this.lastY=e.touches[0].clientY;
+}else if(e.touches.length===2){
+const dx=e.touches[0].clientX-e.touches[1].clientX;
+const dy=e.touches[0].clientY-e.touches[1].clientY;
+const dist=Math.sqrt(dx*dx+dy*dy);
+this.camDist*=this.pinchDist/dist;
+this.camDist=Math.max(1e-20,Math.min(1e20,this.camDist));
+this.pinchDist=dist;
+const cx=(e.touches[0].clientX+e.touches[1].clientX)/2;
+const cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
+this.pan(cx-this.lastX,cy-this.lastY);
+this.lastX=cx;this.lastY=cy;
+this.updateCam();
+}
+},{passive:false});
+cv.addEventListener('touchend',()=>{this.isDrag=false;});
+document.addEventListener('keydown',e=>{
+const wc=this.walkKeyCode(e);if(this.walkMode&&!this.isTypingTarget(e.target)&&wc){this.walkKeys[wc]=true;e.preventDefault();}
+if(e.key==='Escape'){
+this.releaseWalkMouse();
+this.tool='nav';
+document.querySelectorAll('[data-tool]').forEach(b=>b.classList.remove('active'));
+document.querySelector('[data-tool="nav"]').classList.add('active');
+document.body.classList.remove('measuring');
+this.mPts=[];
+this.cancelAlignPick();
+this.endDrawPick();
+}
+});
+document.addEventListener('keyup',e=>{const wc=this.walkKeyCode(e);if(wc)this.walkKeys[wc]=false;});
+document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==cv)this.walkLook=false;});
+const vc=document.getElementById('viewcube');
+if(vc)vc.addEventListener('click',e=>{
+const r=e.target.getBoundingClientRect();
+const x=((e.clientX-r.left)/r.width)*2-1;
+const y=-((e.clientY-r.top)/r.height)*2+1;
+this.setProjection('ortho');
+this.quat.set(0,0,0,1);
+if(y>0.35)this.quat.set(0,0,0,1); // TOP: вид сверху, настоящий план в Ortho
+else if(y<-0.35)this.quat.setFromEuler(new THREE.Euler(Math.PI,0,0));
+else if(x>0.35)this.quat.setFromEuler(new THREE.Euler(0,Math.PI/2,0));
+else if(x<-0.35)this.quat.setFromEuler(new THREE.Euler(0,-Math.PI/2,0));
+else this.quat.setFromEuler(new THREE.Euler(Math.PI/2,0,0));
+this.updateCam();
+});
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
+document.querySelectorAll('[data-mode]').forEach(x=>x.classList.remove('active'));
+b.classList.add('active');
+this.setMode(b.dataset.mode);
+});
+document.getElementById('ptSize').oninput=e=>{this.ptSz=parseFloat(e.target.value);document.getElementById('sizeVal').textContent=this.ptSz.toFixed(1);this.updMat();};
+document.getElementById('opacity').oninput=e=>{this.op=parseInt(e.target.value)/100;document.getElementById('opacityVal').textContent=e.target.value+'%';this.updMat();};
+document.getElementById('perspBtn').onclick=()=>this.setProjection('persp');
+document.getElementById('orthoBtn').onclick=()=>this.setProjection('ortho');
+document.getElementById('topBtn').onclick=()=>this.setTopOrtho();
+document.getElementById('crossBtn').onclick=()=>this.toggleCrosshair();
+document.getElementById('magBtn').onclick=()=>this.toggleMagnifier();
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{
+document.querySelectorAll('[data-tool]').forEach(x=>x.classList.remove('active'));
+b.classList.add('active');
+this.tool=b.dataset.tool;
+document.body.classList.toggle('measuring',this.tool!=='nav');
+this.mPts=[];
+});
+document.getElementById('clearBtn').onclick=()=>this.clearM();
+document.getElementById('alignPlane').onchange=e=>{this.alignPlane=this.normPlane(e.target.value);this.setAlignStatus('Плоскость '+this.alignPlane+': нажмите Pick 3 pts');};
+document.getElementById('alignPickBtn').onclick=()=>this.beginAlign();
+document.getElementById('alignResetBtn').onclick=()=>this.resetAlignment();
+document.getElementById('alignSaveLasBtn').onclick=()=>this.saveAlignedLAS();
+document.getElementById('sliceApplyBtn').onclick=()=>this.applySliceFromUI();
+document.getElementById('sliceResetBtn').onclick=()=>this.resetSlice();
+document.getElementById('drawPickBtn').onclick=()=>this.beginDraw();
+document.getElementById('drawUndoBtn').onclick=()=>this.undoDrawPoint();
+document.getElementById('drawMeasureBtn').onclick=()=>this.measureDraw();
+document.getElementById('drawCancelBtn').onclick=()=>this.clearDrawing(true);
+document.getElementById('drawOrthoBtn').onclick=()=>this.orthoAlignDrawing();
+document.getElementById('drawOrthoUndoBtn').onclick=()=>this.undoOrthoDrawing();
+document.getElementById('drawExportDxfBtn').onclick=()=>this.exportDrawingDXF();
+document.getElementById('pngSaveBtn').onclick=()=>this.saveCleanPNG();
+document.getElementById('pngDxfBtn').onclick=()=>this.savePNGInDXF();
+document.getElementById('walkBtn').onclick=()=>this.toggleWalkMode();
+window.addEventListener('resize',()=>{
+this.pCam.aspect=innerWidth/innerHeight;
+this.pCam.updateProjectionMatrix();
+this.updateOrthoFrustum();
+this.rend.setSize(innerWidth,innerHeight);
+if(this.cloud&&this.cloud.material.uniforms)this.cloud.material.uniforms.sh.value=innerHeight;
+if(this.vcRend){const sz=window.innerWidth<768?70:120;this.vcRend.setSize(sz,sz);}
+this.resizeHUD();
+});
+}
+resizeHUD(){if(!this.hud)return;this.dpr=Math.min(devicePixelRatio||1,2);this.hud.width=Math.floor(innerWidth*this.dpr);this.hud.height=Math.floor(innerHeight*this.dpr);this.hud.style.width=innerWidth+'px';this.hud.style.height=innerHeight+'px';}
+clearHUD(){if(this.hctx)this.hctx.clearRect(0,0,this.hud.width,this.hud.height);}
+updateCursor(x,y){this.mouseX=x;this.mouseY=y;this.mouseIn=true;}
+isPickTool(){return this.tool==='align'||this.tool==='draw'||this.tool==='dist';}
+toggleCrosshair(){this.crosshairOn=!this.crosshairOn;const b=document.getElementById('crossBtn');if(b)b.classList.toggle('active',this.crosshairOn);}
+toggleMagnifier(){this.magnifierOn=!this.magnifierOn;const b=document.getElementById('magBtn');if(b)b.classList.toggle('active',this.magnifierOn);}
+drawHUD(){if(!this.hctx||!this.hud)return;const ctx=this.hctx,d=this.dpr||1;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,this.hud.width,this.hud.height);if(!this.mouseIn||!this.isPickTool())return;ctx.setTransform(d,0,0,d,0,0);const x=this.mouseX,y=this.mouseY;
+if(this.magnifierOn){const r=125,mag=4,sw=(r*2)/mag,sh=(r*2)/mag;const rr=this.rend.domElement.width/Math.max(1,this.rend.domElement.clientWidth||innerWidth);ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.clip();try{ctx.drawImage(this.rend.domElement,(x-sw/2)*rr,(y-sh/2)*rr,sw*rr,sh*rr,x-r,y-r,r*2,r*2);}catch(e){}ctx.restore();ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.strokeStyle='rgba(255,80,80,.95)';ctx.lineWidth=2;ctx.shadowColor='rgba(255,255,255,.55)';ctx.shadowBlur=3;ctx.stroke();ctx.restore();}
+if(this.crosshairOn){const L=this.magnifierOn?105:170,g=10;ctx.save();ctx.strokeStyle='rgba(255,35,35,.98)';ctx.lineWidth=1.8;ctx.shadowColor='rgba(255,255,255,.75)';ctx.shadowBlur=2;ctx.beginPath();ctx.moveTo(x-L,y);ctx.lineTo(x-g,y);ctx.moveTo(x+g,y);ctx.lineTo(x+L,y);ctx.moveTo(x,y-L);ctx.lineTo(x,y-g);ctx.moveTo(x,y+g);ctx.lineTo(x,y+L);ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='rgba(255,35,35,.98)';ctx.beginPath();ctx.arc(x,y,2.4,0,Math.PI*2);ctx.fill();ctx.restore();}
+}
+rotate(dx,dy){
+const speed=0.005;
+const euler=new THREE.Euler(0,0,0,'YXZ');
+euler.setFromQuaternion(this.quat);
+euler.y-=dx*speed;
+euler.x-=dy*speed;
+this.quat.setFromEuler(euler);
+this.updateCam();
+}
+pan(dx,dy){
+const panScale=this.camDist*0.001;
+const right=new THREE.Vector3(1,0,0).applyQuaternion(this.quat);
+const up=new THREE.Vector3(0,1,0).applyQuaternion(this.quat);
+this.tgt.addScaledVector(right,-dx*panScale);
+this.tgt.addScaledVector(up,dy*panScale);
+this.updateCam();
+}
+setProjection(mode){
+if(this.walkMode&&mode==='ortho')this.toggleWalkMode(false);
+this.proj=mode==='ortho'?'ortho':'persp';
+this.cam=this.proj==='ortho'?this.oCam:this.pCam;
+this.updateOrthoFrustum();
+this.updateCam();
+const pb=document.getElementById('perspBtn'),ob=document.getElementById('orthoBtn');
+if(pb&&ob){pb.classList.toggle('active',this.proj==='persp');ob.classList.toggle('active',this.proj==='ortho');}
+if(this.cloud&&this.cloud.material.uniforms)this.cloud.material.uniforms.ortho.value=this.proj==='ortho'?1:0;
+}
+updateOrthoFrustum(){
+if(!this.oCam)return;
+const aspect=innerWidth/innerHeight;
+const viewH=Math.max((this.camDist||1)*2*Math.tan(Math.PI/6),1e-6);
+this.oCam.left=-viewH*aspect/2;this.oCam.right=viewH*aspect/2;this.oCam.top=viewH/2;this.oCam.bottom=-viewH/2;
+this.oCam.updateProjectionMatrix();
+}
+setTopOrtho(){
+if(this.walkMode)this.toggleWalkMode(false);
+this.setProjection('ortho');
+this.quat.set(0,0,0,1);
+this.updateCam();
+}
+updateCam(){
+if(this.walkMode){this.applyWalkCamera();return;}
+if(this.proj==='ortho')this.updateOrthoFrustum();
+const offset=new THREE.Vector3(0,0,this.camDist).applyQuaternion(this.quat);
+this.cam.position.copy(this.tgt).add(offset);
+this.cam.quaternion.copy(this.quat);
+}
+isTypingTarget(el){return el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName);}
+walkKeyCode(e){const c=e.code;if(c==='KeyW'||c==='ArrowUp')return'KeyW';if(c==='KeyA'||c==='ArrowLeft')return'KeyA';if(c==='KeyS'||c==='ArrowDown')return'KeyS';if(c==='KeyD'||c==='ArrowRight')return'KeyD';if(c==='KeyQ')return'KeyQ';if(c==='KeyE')return'KeyE';if(c==='KeyR'||c==='PageUp')return'LookUp';if(c==='KeyF'||c==='PageDown')return'LookDown';if(c==='Digit0'||c==='Numpad0')return'LookLevel';if(c==='ShiftLeft'||c==='ShiftRight')return'Shift';const k=(e.key||'').toLowerCase();if(k==='w'||k==='ц')return'KeyW';if(k==='a'||k==='ф')return'KeyA';if(k==='s'||k==='ы')return'KeyS';if(k==='d'||k==='в')return'KeyD';if(k==='q'||k==='й')return'KeyQ';if(k==='e'||k==='у')return'KeyE';if(k==='r'||k==='к')return'LookUp';if(k==='f'||k==='а')return'LookDown';if(k==='0')return'LookLevel';if(k==='shift')return'Shift';return'';}
+toggleWalkMode(force){const on=force===undefined?!this.walkMode:!!force;if(on===this.walkMode)return;if(on)this.enterWalkMode();else this.exitWalkMode();}
+setWalkButton(){const b=document.getElementById('walkBtn');if(b)b.classList.toggle('active',this.walkMode);document.body.classList.toggle('walking',this.walkMode);}
+enterWalkMode(){if(!this.cloud||!this.D.alignedPos){alert('Open point cloud first');return;}this.proj='persp';this.cam=this.pCam;this.updateOrthoFrustum();const pb=document.getElementById('perspBtn'),ob=document.getElementById('orthoBtn');if(pb&&ob){pb.classList.add('active');ob.classList.remove('active');}if(this.cloud&&this.cloud.material.uniforms)this.cloud.material.uniforms.ortho.value=0;this.walkFloor=null;this.buildWalkFloor();const f=this.walkFloor;const x=THREE.MathUtils.clamp(this.tgt.x,f.minX,f.maxX),y=THREE.MathUtils.clamp(this.tgt.y,f.minY,f.maxY);this.walkPos.set(x,y,this.sampleWalkFloor(x,y)+this.walkEyeHeight);const dir=new THREE.Vector3();this.pCam.getWorldDirection(dir);this.walkYaw=Math.hypot(dir.x,dir.y)>1e-6?Math.atan2(dir.y,dir.x):0;this.walkPitch=0;this.walkRoll=0;this.walkVelZ=0;this.walkMode=true;this.setWalkButton();this.applyWalkCamera();}
+exitWalkMode(){const cv=document.getElementById('canvas');if(document.pointerLockElement===cv&&document.exitPointerLock)document.exitPointerLock();this.walkMode=false;this.walkLook=false;this.setWalkButton();this.cam=this.pCam;this.proj='persp';const dist=Math.max((this.sz||1)*.08,this.walkEyeHeight*4);this.camDist=dist;this.quat.copy(this.pCam.quaternion);const off=new THREE.Vector3(0,0,dist).applyQuaternion(this.quat);this.tgt.copy(this.pCam.position).sub(off);this.updateCam();}
+releaseWalkMouse(){const cv=document.getElementById('canvas');this.walkLook=false;if(document.pointerLockElement===cv&&document.exitPointerLock)document.exitPointerLock();}
+lookWalk(dx,dy){const s=.0025;this.walkYaw-=dx*s;this.walkPitch=THREE.MathUtils.clamp(this.walkPitch-dy*s,-1.48,1.48);this.applyWalkCamera();}
+applyWalkCamera(){const up0=new THREE.Vector3(0,0,1),fh=new THREE.Vector3(Math.cos(this.walkYaw),Math.sin(this.walkYaw),0).normalize();const cp=Math.cos(this.walkPitch),sp=Math.sin(this.walkPitch);const forward=fh.clone().multiplyScalar(cp).addScaledVector(up0,sp).normalize();let right=new THREE.Vector3().crossVectors(forward,up0);if(right.lengthSq()<1e-9)right.set(1,0,0);else right.normalize();let up=up0.clone().multiplyScalar(cp).addScaledVector(fh,-sp).normalize();if(this.walkRoll){right.applyAxisAngle(forward,this.walkRoll);up.applyAxisAngle(forward,this.walkRoll);}const m=new THREE.Matrix4().makeBasis(right,up,forward.clone().negate());this.pCam.position.copy(this.walkPos);this.pCam.quaternion.setFromRotationMatrix(m);this.pCam.up.copy(up);this.pCam.updateMatrixWorld();this.cam=this.pCam;}
+updateWalk(dt){if(!this.walkMode)return;const k=this.walkKeys;if(k.KeyQ)this.walkYaw+=this.walkRollSpeed*dt;if(k.KeyE)this.walkYaw-=this.walkRollSpeed*dt;if(k.LookUp)this.walkPitch=THREE.MathUtils.clamp(this.walkPitch+1.1*dt,-1.1,1.1);if(k.LookDown)this.walkPitch=THREE.MathUtils.clamp(this.walkPitch-1.1*dt,-1.1,1.1);if(k.LookLevel){this.walkPitch=0;this.walkKeys.LookLevel=false;}const fwd=new THREE.Vector3(Math.cos(this.walkYaw),Math.sin(this.walkYaw),0),right=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,0,1)).normalize(),move=new THREE.Vector3();if(k.KeyW)move.add(fwd);if(k.KeyS)move.sub(fwd);if(k.KeyD)move.add(right);if(k.KeyA)move.sub(right);if(move.lengthSq()>0){move.normalize();const speed=k.Shift?this.walkRunSpeed:this.walkSpeed;this.walkPos.addScaledVector(move,speed*dt);if(this.walkFloor){this.walkPos.x=THREE.MathUtils.clamp(this.walkPos.x,this.walkFloor.minX,this.walkFloor.maxX);this.walkPos.y=THREE.MathUtils.clamp(this.walkPos.y,this.walkFloor.minY,this.walkFloor.maxY);}}this.walkVelZ-=this.walkGravity*dt;this.walkPos.z+=this.walkVelZ*dt;const ground=this.sampleWalkFloor(this.walkPos.x,this.walkPos.y)+this.walkEyeHeight;if(this.walkPos.z<ground){this.walkPos.z=ground;this.walkVelZ=0;}this.applyWalkCamera();}
+buildWalkFloor(){const arr=this.D&&this.D.alignedPos,count=this.D&&this.D.count;if(!arr||!count){this.walkFloor={field:new Float32Array([0]),wall:new Uint8Array([0]),N:1,minX:0,maxX:1,minY:0,maxY:1,minZ:0,maxZ:0};return this.walkFloor;}let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;for(let i=0;i<count;i++){const x=arr[i*3],y=arr[i*3+1],z=arr[i*3+2];if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;if(z<minZ)minZ=z;if(z>maxZ)maxZ=z;}const N=256,field=new Float32Array(N*N);field.fill(Infinity);const dx=(maxX-minX)||1,dy=(maxY-minY)||1,stride=Math.max(1,Math.ceil(count/8000000));for(let i=0;i<count;i+=stride){const x=arr[i*3],y=arr[i*3+1],z=arr[i*3+2];const gx=THREE.MathUtils.clamp(Math.floor((x-minX)/dx*(N-1)),0,N-1),gy=THREE.MathUtils.clamp(Math.floor((y-minY)/dy*(N-1)),0,N-1),idx=gy*N+gx;if(z<field[idx])field[idx]=z;}this.fillWalkFloor(field,N,isFinite(minZ)?minZ:0);const wall=new Uint8Array(N*N),bodyTop=Math.max(this.walkEyeHeight*1.15,1.9);for(let i=0;i<count;i+=stride){const x=arr[i*3],y=arr[i*3+1],z=arr[i*3+2];const gx=THREE.MathUtils.clamp(Math.floor((x-minX)/dx*(N-1)),0,N-1),gy=THREE.MathUtils.clamp(Math.floor((y-minY)/dy*(N-1)),0,N-1),idx=gy*N+gx,base=field[idx];if(z>base+.25&&z<base+bodyTop)wall[idx]=1;}this.walkFloor={field,wall,N,minX,maxX,minY,maxY,minZ,maxZ};return this.walkFloor;}
+fillWalkFloor(field,N,fallback){for(let pass=0;pass<18;pass++){let changed=0;const next=field.slice();for(let y=0;y<N;y++)for(let x=0;x<N;x++){const idx=y*N+x;if(isFinite(field[idx]))continue;let sum=0,c=0;for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){const xx=x+ox,yy=y+oy;if(xx<0||yy<0||xx>=N||yy>=N)continue;const v=field[yy*N+xx];if(isFinite(v)){sum+=v;c++;}}if(c){next[idx]=sum/c;changed++;}}field.set(next);if(!changed)break;}for(let i=0;i<field.length;i++)if(!isFinite(field[i]))field[i]=fallback;}
+sampleWalkFloor(x,y){if(!this.walkFloor)this.buildWalkFloor();const f=this.walkFloor,N=f.N;if(N<=1)return f.field[0]||0;const dx=(f.maxX-f.minX)||1,dy=(f.maxY-f.minY)||1,fx=THREE.MathUtils.clamp((x-f.minX)/dx*(N-1),0,N-1.001),fy=THREE.MathUtils.clamp((y-f.minY)/dy*(N-1),0,N-1.001),x0=Math.floor(fx),y0=Math.floor(fy),tx=fx-x0,ty=fy-y0;const h=(xx,yy)=>f.field[yy*N+xx];const a=h(x0,y0),b=h(x0+1,y0),c=h(x0,y0+1),d=h(x0+1,y0+1);return(a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty;}
+walkBlocked(x,y){const f=this.walkFloor;if(!f||!f.wall||f.N<=1)return false;const N=f.N,dx=(f.maxX-f.minX)||1,dy=(f.maxY-f.minY)||1,gx=THREE.MathUtils.clamp(Math.floor((x-f.minX)/dx*(N-1)),0,N-1),gy=THREE.MathUtils.clamp(Math.floor((y-f.minY)/dy*(N-1)),0,N-1);for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){const xx=gx+ox,yy=gy+oy;if(xx>=0&&yy>=0&&xx<N&&yy<N&&f.wall[yy*N+xx])return true;}return false;}
+invalidateWalkFloor(){this.walkFloor=null;}
+syncWalkAfterMatrix(m,q){if(!this.walkMode)return;const dir=new THREE.Vector3();this.pCam.getWorldDirection(dir);dir.applyQuaternion(q).normalize();this.walkPos.applyMatrix4(m);if(Math.hypot(dir.x,dir.y)>1e-6)this.walkYaw=Math.atan2(dir.y,dir.x);this.walkPitch=0;this.walkRoll=0;this.invalidateWalkFloor();this.applyWalkCamera();}
+pickCoords(cx,cy){const r=document.getElementById('canvas').getBoundingClientRect();return{r,cx,cy};}
+pickPoint(cx,cy){
+if(!this.cloud)return null;
+const p=this.pickCoords(cx,cy),r=p.r;
+const m=new THREE.Vector2(((p.cx-r.left)/r.width)*2-1,-((p.cy-r.top)/r.height)*2+1);
+this.ray.setFromCamera(m,this.cam);
+const hits=this.ray.intersectObject(this.cloud);
+return hits.length?hits[0].point.clone():null;
+}
+doMeasure(cx,cy){
+const pt=this.pickPoint(cx,cy);
+if(!pt)return;
+this.mPts.push(pt);
+this.addMarker(pt);
+if(this.mPts.length===2)this.showDist();
+}
+async load(file){
+document.getElementById('welcomeBox').style.display='none';
+document.getElementById('loadingBox').classList.add('active');
+try{
+const ext=file.name.split('.').pop().toLowerCase();
+let d;
+if(ext!=='las')throw new Error('Сейчас поддерживается только несжатый .las. LAZ/PLY/PCD/XYZ в этой версии отключены. Конвертируйте файл в LAS.');
+d=await this.parseLAS(file);
+this.build(d);
+this.updatePointCounter();
+}catch(e){console.error(e);alert('Error: '+e.message);}
+document.getElementById('loadingBox').classList.remove('active');
+}
+async parsePLY(file){
+const txt=await file.text(),lines=txt.split('\n');
+let n=0,h=0,hasC=false;const props=[];
+for(let i=0;i<lines.length;i++){
+const l=lines[i].trim();
+if(l.startsWith('element vertex'))n=parseInt(l.split(' ')[2]);
+if(l.startsWith('property')){const p=l.split(' ').pop();props.push(p);if(['red','r','diffuse_red'].includes(p))hasC=true;}
+if(l==='end_header'){h=i+1;break;}
+}
+const pos=[],col=[];
+const xi=props.indexOf('x'),yi=props.indexOf('y'),zi=props.indexOf('z');
+let ri=props.indexOf('red');if(ri<0)ri=props.indexOf('r');if(ri<0)ri=props.indexOf('diffuse_red');
+let gi=props.indexOf('green');if(gi<0)gi=props.indexOf('g');if(gi<0)gi=props.indexOf('diffuse_green');
+let bi=props.indexOf('blue');if(bi<0)bi=props.indexOf('b');if(bi<0)bi=props.indexOf('diffuse_blue');
+for(let i=h;i<h+n&&i<lines.length;i++){
+const p=lines[i].trim().split(/\s+/).map(parseFloat);
+if(p.length<3||isNaN(p[0]))continue;
+const x=xi>=0?p[xi]:p[0],y=yi>=0?p[yi]:p[1],z=zi>=0?p[zi]:p[2];
+if(!isFinite(x)||!isFinite(y)||!isFinite(z))continue;
+pos.push({x,y,z});
+col.push(hasC&&ri>=0?{r:p[ri]>1?p[ri]/255:p[ri],g:p[gi]>1?p[gi]/255:p[gi],b:p[bi]>1?p[bi]/255:p[bi]}:{r:.7,g:.7,b:.7});
+}
+return{positions:pos,colors:col};
+}
+async parsePCD(file){
+const buf=await file.arrayBuffer(),bytes=new Uint8Array(buf);
+let hEnd=0,hStr='';
+for(let i=0;i<Math.min(bytes.length,8192);i++){
+hStr+=String.fromCharCode(bytes[i]);
+const m=hStr.match(/DATA\s+(ascii|binary)\s*[\r\n]/i);
+if(m){hEnd=hStr.indexOf(m[0])+m[0].length;break;}
+}
+const hLines=hStr.substring(0,hEnd).split('\n');
+let n=0,fields=[],sizes=[],binary=false;
+for(const l of hLines){
+const t=l.trim();
+if(t.startsWith('FIELDS'))fields=t.split(/\s+/).slice(1).map(f=>f.toLowerCase());
+if(t.startsWith('SIZE'))sizes=t.split(/\s+/).slice(1).map(Number);
+if(t.startsWith('POINTS'))n=parseInt(t.split(/\s+/)[1]);
+if(t.startsWith('DATA'))binary=t.toLowerCase().includes('binary');
+}
+const pos=[],col=[];
+const xi=fields.indexOf('x'),yi=fields.indexOf('y'),zi=fields.indexOf('z');
+const rgbi=fields.indexOf('rgb'),ri=fields.indexOf('r'),gi=fields.indexOf('g'),bi=fields.indexOf('b');
+if(binary){
+const view=new DataView(buf,hEnd);
+const rowSize=sizes.reduce((a,b)=>a+b,0);
+const offs=[];let o=0;for(const s of sizes){offs.push(o);o+=s;}
+const step=1;
+for(let i=0;i<n;i+=step){
+const base=i*rowSize;if(base+rowSize>view.byteLength)break;
+let x,y,z;
+if(xi>=0){
+x=sizes[xi]===4?view.getFloat32(base+offs[xi],true):view.getFloat64(base+offs[xi],true);
+y=sizes[yi]===4?view.getFloat32(base+offs[yi],true):view.getFloat64(base+offs[yi],true);
+z=sizes[zi]===4?view.getFloat32(base+offs[zi],true):view.getFloat64(base+offs[zi],true);
+}else{x=view.getFloat32(base,true);y=view.getFloat32(base+4,true);z=view.getFloat32(base+8,true);}
+if(!isFinite(x)||!isFinite(y)||!isFinite(z))continue;
+pos.push({x,y,z});
+if(rgbi>=0){const f=view.getFloat32(base+offs[rgbi],true);const int=new DataView(new Float32Array([f]).buffer).getUint32(0,true);col.push({r:((int>>16)&255)/255,g:((int>>8)&255)/255,b:(int&255)/255});}
+else if(ri>=0){col.push({r:view.getUint8(base+offs[ri])/255,g:view.getUint8(base+offs[gi])/255,b:view.getUint8(base+offs[bi])/255});}
+else col.push({r:.7,g:.7,b:.7});
+}
+}else{
+const lines=new TextDecoder().decode(bytes.slice(hEnd)).split('\n');
+for(let i=0;i<n&&i<lines.length;i++){
+const p=lines[i].trim().split(/\s+/).map(parseFloat);
+if(p.length<3||isNaN(p[0]))continue;
+const x=xi>=0?p[xi]:p[0],y=yi>=0?p[yi]:p[1],z=zi>=0?p[zi]:p[2];
+if(!isFinite(x)||!isFinite(y)||!isFinite(z))continue;
+pos.push({x,y,z});
+if(rgbi>=0){const int=Math.floor(p[rgbi]);col.push({r:((int>>16)&255)/255,g:((int>>8)&255)/255,b:(int&255)/255});}
+else col.push({r:.7,g:.7,b:.7});
+}
+}
+return{positions:pos,colors:col};
+}
+async parseLAS(file){
+const headerBuf=await file.slice(0,Math.min(file.size,4096)).arrayBuffer(),hv=new DataView(headerBuf);
+if(String.fromCharCode(hv.getUint8(0),hv.getUint8(1),hv.getUint8(2),hv.getUint8(3))!=='LASF')throw new Error('Invalid LAS');
+const vMaj=hv.getUint8(24),vMin=hv.getUint8(25);
+const td=new TextDecoder('ascii');
+const genSoft=td.decode(new Uint8Array(headerBuf,58,32)).replace(/\0/g,'').trim();
+const keepLocal=genSoft.indexOf('A2ViewerAligned')>=0;
+const off=hv.getUint32(96,true),fmt=hv.getUint8(104),len=hv.getUint16(105,true);
+let n=hv.getUint32(107,true);
+if(vMaj===1&&vMin>=4&&n===0&&headerBuf.byteLength>=255)n=Number(hv.getBigUint64(247,true));
+const sx=hv.getFloat64(131,true),sy=hv.getFloat64(139,true),sz=hv.getFloat64(147,true);
+const ox=hv.getFloat64(155,true),oy=hv.getFloat64(163,true),oz=hv.getFloat64(171,true);
+const maxXh=hv.getFloat64(179,true),minXh=hv.getFloat64(187,true),maxYh=hv.getFloat64(195,true),minYh=hv.getFloat64(203,true),maxZh=hv.getFloat64(211,true),minZh=hv.getFloat64(219,true);
+const hasC=[2,3,5,7,8,10].includes(fmt);
+const rgbO={2:20,3:28,5:28,7:30,8:30,10:30}[fmt]||0;
+const maxByFile=Math.max(0,Math.floor((file.size-off)/len));
+n=Math.min(n,maxByFile);
+if(!n)throw new Error('No LAS points');
+let isPreview=false,selectProb=1,capacity=n;
+if(n>this.maxPreviewPoints){
+ const msg='В LAS '+n.toLocaleString()+' точек. Полная загрузка может упасть по памяти.\n\nOK — открыть случайно прореженное preview до ~'+this.maxPreviewPoints.toLocaleString()+' точек. Срезы и Save aligned LAS будут работать по полному исходному LAS.\nCancel — попробовать загрузить полностью.';
+ if(confirm(msg)){selectProb=this.maxPreviewPoints/n;capacity=Math.min(n,Math.ceil(this.maxPreviewPoints*1.05)+10000);isPreview=true;}else if(n>60000000&&!confirm('Попытка полной загрузки '+n.toLocaleString()+' точек почти наверняка перегрузит браузер. Всё равно продолжить?'))throw new Error('Открытие отменено');
+}
+const cx=keepLocal?0:(minXh+maxXh)/2,cy=keepLocal?0:(minYh+maxYh)/2,cz=keepLocal?0:(minZh+maxZh)/2;
+let basePos=new Float32Array(capacity*3),origCol=new Float32Array(capacity*3);
+let k=0,minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
+const loading=document.getElementById('loadingText');
+const recPerChunk=600000;
+for(let i0=0;i0<n;i0+=recPerChunk){
+ const i1=Math.min(n,i0+recPerChunk);
+ const buf=await file.slice(off+i0*len,off+i1*len).arrayBuffer();
+ const v=new DataView(buf);
+ for(let j=i0;j<i1;j++){
+  if(isPreview&&this.rand01(j)>selectProb)continue;
+  if(k>=capacity)continue;
+  const o=(j-i0)*len;if(o+12>buf.byteLength)break;
+  const x=v.getInt32(o,true)*sx+ox,y=v.getInt32(o+4,true)*sy+oy,z=v.getInt32(o+8,true)*sz+oz;
+  if(!isFinite(x)||!isFinite(y)||!isFinite(z))continue;
+  const bx=x-cx,by=y-cy,bz=z-cz;
+  basePos[k*3]=bx;basePos[k*3+1]=by;basePos[k*3+2]=bz;
+  if(hasC&&o+rgbO+6<=buf.byteLength){origCol[k*3]=v.getUint16(o+rgbO,true)/65535;origCol[k*3+1]=v.getUint16(o+rgbO+2,true)/65535;origCol[k*3+2]=v.getUint16(o+rgbO+4,true)/65535;}else{origCol[k*3]=.7;origCol[k*3+1]=.7;origCol[k*3+2]=.7;}
+  if(bx<minX)minX=bx;if(bx>maxX)maxX=bx;if(by<minY)minY=by;if(by>maxY)maxY=by;if(bz<minZ)minZ=bz;if(bz>maxZ)maxZ=bz;
+  k++;
+ }
+ if(loading)loading.textContent='Loading LAS '+Math.round(i1/n*100)+'%'+(isPreview?' random preview':'');
+ await new Promise(r=>setTimeout(r,0));
+}
+if(!k)throw new Error('No valid LAS points');
+if(k<capacity){basePos=basePos.slice(0,k*3);origCol=origCol.slice(0,k*3);}
+const bounds={minX,maxX,minY,maxY,minZ,maxZ};
+const lasSource={file,off,fmt,len,n,sx,sy,sz,ox,oy,oz,cx,cy,cz,hasC,rgbO,keepLocal,bounds};
+return{typed:true,count:k,sourceCount:n,basePos,origCol,bounds,keepLocal,lasSource,isPreview,previewStep:isPreview?Math.round(1/selectProb):1};
+}
+
+async parseXYZ(file){
+const txt=await file.text(),pos=[],col=[];
+for(const l of txt.split('\n')){
+const p=l.trim().split(/[\s,;]+/).map(parseFloat);
+if(p.length>=3&&isFinite(p[0])){
+pos.push({x:p[0],y:p[1],z:p[2]});
+col.push(p.length>=6?{r:p[3]>1?p[3]/255:p[3],g:p[4]>1?p[4]/255:p[4],b:p[5]>1?p[5]/255:p[5]}:{r:.7,g:.7,b:.7});
+}
+}
+return{positions:pos,colors:col};
+}
+build(d){
+if(this.walkMode)this.toggleWalkMode(false);
+this.invalidateWalkFloor();
+if(this.cloud){this.scene.remove(this.cloud);this.cloud.geometry.dispose();this.cloud.material.dispose();}
+this.clearM();this.clearAlignMarkers();this.clearDrawing(false);this.sliceState=null;this.currentShape=null;
+this.fullLasSource=d.lasSource||null;this.alignMatrix=new THREE.Matrix4();
+let count,basePos,origCol,minX,maxX,minY,maxY,minZ,maxZ;
+if(d.typed){
+count=d.count;basePos=d.basePos;origCol=d.origCol;({minX,maxX,minY,maxY,minZ,maxZ}=d.bounds);
+}else{
+if(!d.positions.length)throw new Error('No points found');
+minX=Infinity;maxX=-Infinity;minY=Infinity;maxY=-Infinity;minZ=Infinity;maxZ=-Infinity;
+for(const p of d.positions){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z);}
+const keepLocal=!!d.keepLocal;const cx=keepLocal?0:(minX+maxX)/2,cy=keepLocal?0:(minY+maxY)/2,cz=keepLocal?0:(minZ+maxZ)/2;
+count=d.positions.length;basePos=new Float32Array(count*3);origCol=new Float32Array(count*3);
+for(let i=0;i<count;i++){
+basePos[i*3]=d.positions[i].x-cx;basePos[i*3+1]=d.positions[i].y-cy;basePos[i*3+2]=d.positions[i].z-cz;
+origCol[i*3]=d.colors[i].r;origCol[i*3+1]=d.colors[i].g;origCol[i*3+2]=d.colors[i].b;
+}
+}
+if(!count)throw new Error('No points found');
+this.bounds={minX,maxX,minY,maxY,minZ,maxZ};
+this.sz=Math.max(maxX-minX,maxY-minY,maxZ-minZ)||1;
+this.D={count,sourceCount:d.sourceCount||count,basePos,alignedPos:basePos.slice(),origCol,filterIdx:null,sliceOverride:null,isPreview:!!d.isPreview,hMin:-(maxZ-minZ)/2,hMax:(maxZ-minZ)/2};
+const geo=new THREE.BufferGeometry();
+const mat=new THREE.ShaderMaterial({vertexShader:VS,fragmentShader:FS,uniforms:{ps:{value:this.ptSz},op:{value:this.op},sh:{value:innerHeight},ortho:{value:this.proj==='ortho'?1:0}},transparent:true,depthWrite:true,depthTest:true});
+this.cloud=new THREE.Points(geo,mat);
+this.scene.add(this.cloud);
+this.refreshGeometry();
+this.tgt.set(0,0,0);this.camDist=this.sz*1.5;
+this.quat.setFromEuler(new THREE.Euler(0.3,0.5,0));
+this.setProjection('persp');
+this.updateCam();
+this.ray.params.Points.threshold=this.sz*0.003;
+this.setAlignStatus((this.D.isPreview?'Облако загружено как preview: '+count.toLocaleString()+' / '+this.D.sourceCount.toLocaleString()+' точек. Срезы читаются из полного LAS.':'Облако загружено полностью: '+count.toLocaleString()+' точек.')+' Для плана нажмите Top или Ortho.','ok');
+this.setSliceStatus('Срез выключен. Например XY + 1.2 + 0.3 = Z 1.2…1.5 м');
+this.setDrawStatus('Работает только в режиме Slice: сначала нажмите Show slice');
+}
+normPlane(p){p=(p||'XY').toUpperCase();if(p==='ZX')p='XZ';if(p==='ZY')p='YZ';return ['XY','XZ','YZ'].includes(p)?p:'XY';}
+rand01(i){let x=(i+0x9e3779b9)|0;x=Math.imul(x^(x>>>16),0x85ebca6b);x=Math.imul(x^(x>>>13),0xc2b2ae35);x=(x^(x>>>16))>>>0;return x/4294967296;}
+axisIndex(plane){plane=this.normPlane(plane);return plane==='XY'?2:(plane==='XZ'?1:0);}
+axisName(plane){return ['X','Y','Z'][this.axisIndex(plane)];}
+targetNormal(plane){plane=this.normPlane(plane);if(plane==='XY')return new THREE.Vector3(0,0,1);if(plane==='XZ')return new THREE.Vector3(0,1,0);return new THREE.Vector3(1,0,0);}
+currentColorSource(){if(this.cMode==='mono'||this.cMode==='height')return null;return this.D.origCol;}
+makeHeightColorArray(){const ov=this.D.sliceOverride;if(ov){const src=ov.pos,n=ov.count,col=new Float32Array(n*3);let min=Infinity,max=-Infinity;for(let i=0;i<n;i++){const v=src[i*3+2];if(v<min)min=v;if(v>max)max=v;}const r=(max-min)||1;for(let i=0;i<n;i++){const t=(src[i*3+2]-min)/r,c=this.hColor(t);col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;}return col;}const idx=this.D.filterIdx,src=this.D.alignedPos,n=idx?idx.length:this.D.count,col=new Float32Array(n*3);let min=Infinity,max=-Infinity;for(let i=0;i<n;i++){const j=idx?idx[i]:i,v=src[j*3+2];if(v<min)min=v;if(v>max)max=v;}const r=(max-min)||1;for(let i=0;i<n;i++){const j=idx?idx[i]:i,t=(src[j*3+2]-min)/r,c=this.hColor(t);col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;}return col;}
+makeVisibleColorArray(){if(this.cMode==='height')return this.makeHeightColorArray();const ov=this.D.sliceOverride;if(ov){const n=ov.count,col=new Float32Array(n*3);if(this.cMode==='mono'){for(let i=0;i<n;i++){col[i*3]=0;col[i*3+1]=.7;col[i*3+2]=1;}}else col.set(ov.col);return col;}const idx=this.D.filterIdx,src=this.currentColorSource();const n=idx?idx.length:this.D.count;const col=new Float32Array(n*3);if(!src){for(let i=0;i<n;i++){col[i*3]=0;col[i*3+1]=.7;col[i*3+2]=1;}return col;}if(idx){for(let i=0;i<n;i++){const j=idx[i];col[i*3]=src[j*3];col[i*3+1]=src[j*3+1];col[i*3+2]=src[j*3+2];}}else col.set(src);return col;}
+makeVisiblePositionArray(){if(this.D.sliceOverride)return this.D.sliceOverride.pos;const idx=this.D.filterIdx,src=this.D.alignedPos;const n=idx?idx.length:this.D.count;if(!idx)return src;const pos=new Float32Array(n*3);for(let i=0;i<n;i++){const j=idx[i];pos[i*3]=src[j*3];pos[i*3+1]=src[j*3+1];pos[i*3+2]=src[j*3+2];}return pos;}
+refreshGeometry(){if(!this.cloud||!this.D.alignedPos)return;const pos=this.makeVisiblePositionArray();const col=this.makeVisibleColorArray();const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(col,3));if(pos.length)geo.computeBoundingSphere();else geo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1);if(this.cloud.geometry)this.cloud.geometry.dispose();this.cloud.geometry=geo;this.updatePointCounter();}
+updatePointCounter(){let text;if(this.D.sliceOverride){const ov=this.D.sliceOverride;text=ov.count.toLocaleString()+' slice / '+(this.D.sourceCount||this.D.count).toLocaleString();}else{const shown=this.D.filterIdx?this.D.filterIdx.length:this.D.count;text=this.D.filterIdx?(shown.toLocaleString()+' / '+this.D.count.toLocaleString()):this.D.count.toLocaleString();}document.getElementById('ptCount').textContent=text;}
+setAlignStatus(msg,cls){const el=document.getElementById('alignStatus');if(!el)return;el.className='status '+(cls||'');el.textContent=msg;}
+setSliceStatus(msg,cls){const el=document.getElementById('sliceStatus');if(!el)return;el.className='status '+(cls||'');el.textContent=msg;}
+setPngStatus(msg,cls){const el=document.getElementById('pngStatus');if(!el)return;el.className='status '+(cls||'');el.textContent=msg;}
+setNavTool(){this.tool='nav';document.querySelectorAll('[data-tool]').forEach(b=>b.classList.remove('active'));const nav=document.querySelector('[data-tool="nav"]');if(nav)nav.classList.add('active');document.body.classList.remove('measuring');const b=document.getElementById('alignPickBtn');if(b)b.classList.remove('active');}
+beginAlign(){if(!this.cloud){alert('Сначала откройте облако');return;}this.alignPlane=this.normPlane(document.getElementById('alignPlane').value);this.tool='align';this.alignPts=[];this.clearAlignMarkers();document.querySelectorAll('[data-tool]').forEach(b=>b.classList.remove('active'));document.body.classList.add('measuring');document.getElementById('alignPickBtn').classList.add('active');this.setAlignStatus('Выберите 3 точки на плоскости '+this.alignPlane+' (0/3)','warn');}
+cancelAlignPick(){this.alignPts=[];this.clearAlignMarkers();const b=document.getElementById('alignPickBtn');if(b)b.classList.remove('active');}
+doAlignPick(cx,cy){const pt=this.pickPoint(cx,cy);if(!pt)return;this.alignPts.push(pt);this.addTempMarker(pt,0xff3344,this.alignH);this.setAlignStatus('Выбрано точек: '+this.alignPts.length+'/3 для '+this.alignPlane,'warn');if(this.alignPts.length>=3){const ok=this.applyPlaneAlignment(this.alignPlane,this.alignPts);this.cancelAlignPick();this.setNavTool();if(ok)this.setAlignStatus('Готово: плоскость '+this.alignPlane+' приведена к '+this.axisName(this.alignPlane)+'=0. XY выравнивает горизонт, XZ/YZ дальше крутят только план вокруг Z.','ok');}}
+currentViewHeight(){if(this.walkMode)return Math.max(this.walkEyeHeight*2,(this.sz||1)*.02,1);if(this.proj==='ortho'&&this.oCam)return Math.abs(this.oCam.top-this.oCam.bottom)||1;return Math.max((this.camDist||1)*2*Math.tan(Math.PI/6),1e-6);}
+markerRadius(){return Math.max(this.currentViewHeight()*0.003, (this.sz||1)*0.00008, 0.008);}
+addTempMarker(pt,color,arr){const sz=this.markerRadius();const geo=new THREE.SphereGeometry(sz,8,8);const mat=new THREE.MeshBasicMaterial({color});const s=new THREE.Mesh(geo,mat);s.position.copy(pt);this.scene.add(s);arr.push(s);}
+clearAlignMarkers(){this.alignH.forEach(h=>{this.scene.remove(h);if(h.geometry)h.geometry.dispose();if(h.material)h.material.dispose();});this.alignH=[];}
+applyPlaneAlignment(plane,pts){this.clearDrawing(false);plane=this.normPlane(plane);const p1=pts[0],p2=pts[1],p3=pts[2];const v1=p2.clone().sub(p1),v2=p3.clone().sub(p1);const normal=v1.cross(v2);if(normal.length()<1e-9){alert('Три точки почти на одной линии. Выберите плоскость заново.');return false;}normal.normalize();let q=new THREE.Quaternion();const target=this.targetNormal(plane);
+if(plane==='XY'){
+if(normal.dot(target)<0)target.negate();q.setFromUnitVectors(normal,target);
+}else{
+const h=new THREE.Vector3(normal.x,normal.y,0);if(h.length()<1e-9){if(normal.dot(target)<0)target.negate();q.setFromUnitVectors(normal,target);}else{h.normalize();if(h.dot(target)<0)target.negate();const crossZ=h.x*target.y-h.y*target.x;const dot=h.x*target.x+h.y*target.y;const ang=Math.atan2(crossZ,dot);q.setFromAxisAngle(new THREE.Vector3(0,0,1),ang);}
+}
+const ax=this.axisIndex(plane);const pRot=pts.map(p=>p.clone().applyQuaternion(q));const off=pRot.reduce((a,p)=>a+(ax===0?p.x:(ax===1?p.y:p.z)),0)/pRot.length;const arr=this.D.alignedPos;const tmp=new THREE.Vector3();
+for(let i=0;i<this.D.count;i++){tmp.set(arr[i*3],arr[i*3+1],arr[i*3+2]).applyQuaternion(q);if(ax===0)tmp.x-=off;else if(ax===1)tmp.y-=off;else tmp.z-=off;arr[i*3]=tmp.x;arr[i*3+1]=tmp.y;arr[i*3+2]=tmp.z;}
+const rot=new THREE.Matrix4().makeRotationFromQuaternion(q),tr=new THREE.Matrix4();if(ax===0)tr.makeTranslation(-off,0,0);else if(ax===1)tr.makeTranslation(0,-off,0);else tr.makeTranslation(0,0,-off);const stepM=new THREE.Matrix4().multiplyMatrices(tr,rot);this.alignMatrix.premultiply(stepM);this.syncWalkAfterMatrix(stepM,q);this.invalidateWalkFloor();
+this.reapplyCurrentSlice(true);return true;}
+resetAlignment(){if(!this.D.basePos)return;this.clearDrawing(false);this.D.alignedPos=this.D.basePos.slice();this.alignMatrix.identity();this.invalidateWalkFloor();this.clearAlignMarkers();this.alignPts=[];this.reapplyCurrentSlice(true);this.setAlignStatus('Выравнивание сброшено: координаты возвращены к исходному положению','ok');}
+async saveAlignedLAS(){
+if(!this.fullLasSource){alert('Для сохранения полного aligned LAS нужно открыть исходный .las файл.');return;}
+const src=this.fullLasSource,n=src.n,scaleX=src.sx||0.001,scaleY=src.sy||0.001,scaleZ=src.sz||0.001,header=227,recLen=26,totalBytes=header+n*recLen;
+if(!confirm('Будет сохранен ПОЛНЫЙ aligned LAS: '+n.toLocaleString()+' точек. Это может занять время. Продолжить?'))return;
+if(!window.showSaveFilePicker&&totalBytes>700000000){alert('Для большого полного LAS нужен Chrome/Edge с поддержкой потокового сохранения (showSaveFilePicker). В этом браузере файл придется собирать в памяти, что может упасть.');return;}
+let writer=null,parts=null,writerClosed=false;
+try{
+ // Важно: showSaveFilePicker должен вызываться сразу по клику пользователя, до любых await/долгих проходов по LAS.
+ if(window.showSaveFilePicker){
+  const h=await window.showSaveFilePicker({suggestedName:'a2_aligned_cloud_full.las',types:[{description:'LAS file',accept:{'application/octet-stream':['.las']}}]});
+  writer=await h.createWritable();
+ }else{
+  parts=[];
+ }
+}catch(err){
+ if(err&&err.name==='AbortError')this.setAlignStatus('Сохранение отменено','warn');
+ else{console.error(err);alert('Ошибка выбора файла для сохранения: '+(err&&err.message?err.message:err));}
+ return;
+}
+const e=this.alignMatrix.elements,loading=document.getElementById('loadingBox'),lt=document.getElementById('loadingText'),recPerChunk=500000;
+let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+if(loading)loading.classList.add('active');
+try{
+ for(let i0=0;i0<n;i0+=recPerChunk){
+  const i1=Math.min(n,i0+recPerChunk),buf=await src.file.slice(src.off+i0*src.len,src.off+i1*src.len).arrayBuffer(),v=new DataView(buf);
+  for(let i=i0;i<i1;i++){
+   const o=(i-i0)*src.len;if(o+12>buf.byteLength)break;
+   const rx=v.getInt32(o,true)*src.sx+src.ox-src.cx,ry=v.getInt32(o+4,true)*src.sy+src.oy-src.cy,rz=v.getInt32(o+8,true)*src.sz+src.oz-src.cz;
+   const x=e[0]*rx+e[4]*ry+e[8]*rz+e[12],y=e[1]*rx+e[5]*ry+e[9]*rz+e[13],z=e[2]*rx+e[6]*ry+e[10]*rz+e[14];
+   if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;if(z<minZ)minZ=z;if(z>maxZ)maxZ=z;
+  }
+  if(lt)lt.textContent='Save aligned LAS: pass 1/2 bounds '+Math.round(i1/n*100)+'%';
+  await new Promise(r=>setTimeout(r,0));
+ }
+ const enc=new TextEncoder();
+ function putStr(v,off,len,s){const a=enc.encode(s);for(let i=0;i<len;i++)v.setUint8(off+i,i<a.length?a[i]:0);}
+ function putF64(v,off,x){v.setFloat64(off,x,true)}function putU32(v,off,x){v.setUint32(off,x,true)}function putU16(v,off,x){v.setUint16(off,x,true)}
+ const headerBuf=new ArrayBuffer(header),hv=new DataView(headerBuf);putStr(hv,0,4,'LASF');hv.setUint8(24,1);hv.setUint8(25,2);putStr(hv,26,32,'A2Viewer');putStr(hv,58,32,'A2ViewerAligned');const now=new Date(),start=new Date(now.getFullYear(),0,0),doy=Math.floor((now-start)/86400000);putU16(hv,90,doy);putU16(hv,92,now.getFullYear());putU16(hv,94,header);putU32(hv,96,header);putU32(hv,100,0);hv.setUint8(104,2);putU16(hv,105,recLen);putU32(hv,107,n);putU32(hv,111,n);for(let i=115;i<131;i++)hv.setUint8(i,0);putF64(hv,131,scaleX);putF64(hv,139,scaleY);putF64(hv,147,scaleZ);putF64(hv,155,minX);putF64(hv,163,minY);putF64(hv,171,minZ);putF64(hv,179,maxX);putF64(hv,187,minX);putF64(hv,195,maxY);putF64(hv,203,minY);putF64(hv,211,maxZ);putF64(hv,219,minZ);
+ if(writer)await writer.write(headerBuf);else parts.push(headerBuf);
+ function wr(ab){return writer?writer.write(ab):(parts.push(ab),Promise.resolve());}
+ function c16(x){return Math.max(0,Math.min(65535,Math.round(x*65535)));}
+ for(let i0=0;i0<n;i0+=recPerChunk){
+  const i1=Math.min(n,i0+recPerChunk),cnt=i1-i0,srcBuf=await src.file.slice(src.off+i0*src.len,src.off+i1*src.len).arrayBuffer(),sv=new DataView(srcBuf),out=new ArrayBuffer(cnt*recLen),ov=new DataView(out);
+  let oo=0;
+  for(let i=i0;i<i1;i++,oo+=recLen){
+   const so=(i-i0)*src.len;if(so+12>srcBuf.byteLength)break;
+   const rx=sv.getInt32(so,true)*src.sx+src.ox-src.cx,ry=sv.getInt32(so+4,true)*src.sy+src.oy-src.cy,rz=sv.getInt32(so+8,true)*src.sz+src.oz-src.cz;
+   const x=e[0]*rx+e[4]*ry+e[8]*rz+e[12],y=e[1]*rx+e[5]*ry+e[9]*rz+e[13],z=e[2]*rx+e[6]*ry+e[10]*rz+e[14];
+   ov.setInt32(oo,Math.round((x-minX)/scaleX),true);ov.setInt32(oo+4,Math.round((y-minY)/scaleY),true);ov.setInt32(oo+8,Math.round((z-minZ)/scaleZ),true);ov.setUint16(oo+12,0,true);ov.setUint8(oo+14,1);ov.setUint8(oo+15,0);ov.setInt8(oo+16,0);ov.setUint8(oo+17,0);ov.setUint16(oo+18,0,true);
+   if(src.hasC&&so+src.rgbO+6<=srcBuf.byteLength){ov.setUint16(oo+20,sv.getUint16(so+src.rgbO,true),true);ov.setUint16(oo+22,sv.getUint16(so+src.rgbO+2,true),true);ov.setUint16(oo+24,sv.getUint16(so+src.rgbO+4,true),true);}else{ov.setUint16(oo+20,c16(.7),true);ov.setUint16(oo+22,c16(.7),true);ov.setUint16(oo+24,c16(.7),true);}
+  }
+  await wr(out);
+  if(lt)lt.textContent='Save aligned LAS: pass 2/2 write '+Math.round(i1/n*100)+'%';
+  await new Promise(r=>setTimeout(r,0));
+ }
+ if(writer){await writer.close();writerClosed=true;}else{const blob=new Blob(parts,{type:'application/octet-stream'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='a2_aligned_cloud_full.las';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
+ this.setAlignStatus('Полный aligned LAS сохранен: '+n.toLocaleString()+' точек, применены все накопленные Align-преобразования.','ok');
+}catch(err){
+ if(writer&&!writerClosed){try{await writer.abort();}catch(e){}}
+ if(err&&err.name==='AbortError'){this.setAlignStatus('Сохранение отменено','warn');}else{console.error(err);alert('Ошибка сохранения LAS: '+(err&&err.message?err.message:err));}
+}
+finally{if(loading)loading.classList.remove('active');}
+}
+
+async applySliceFromUI(){if(!this.cloud){alert('Сначала откройте облако');return;}const plane=this.normPlane(document.getElementById('slicePlane').value);const start=parseFloat(document.getElementById('sliceStart').value);const width=parseFloat(document.getElementById('sliceWidth').value);if(!isFinite(start)||!isFinite(width)||width<=0){alert('Введите корректные start и положительную ширину');return;}if(this.fullLasSource&&this.D.isPreview)await this.applyFullSlice(plane,start,width,false);else this.applySlice(plane,start,width,false);}
+applySlice(plane,start,width,silent){if(!silent)this.clearDrawing(false);plane=this.normPlane(plane);const ax=this.axisIndex(plane);const a=Math.min(start,start+width),b=Math.max(start,start+width);const idx=[];const arr=this.D.alignedPos;for(let i=0;i<this.D.count;i++){const v=ax===0?arr[i*3]:(ax===1?arr[i*3+1]:arr[i*3+2]);if(v>=a&&v<=b)idx.push(i);}this.D.sliceOverride=null;this.D.filterIdx=idx;this.sliceState={plane,start,width};this.refreshGeometry();if(!silent)this.setSliceStatus('Показана полоса '+plane+': '+this.axisName(plane)+' '+a.toFixed(3)+'…'+b.toFixed(3)+' м, точек '+idx.length.toLocaleString()+' / '+this.D.count.toLocaleString(),'ok');}
+async applyFullSlice(plane,start,width,silent){if(!this.fullLasSource){this.applySlice(plane,start,width,silent);return;}if(!silent)this.clearDrawing(false);plane=this.normPlane(plane);const src=this.fullLasSource,ax=this.axisIndex(plane),a=Math.min(start,start+width),b=Math.max(start,start+width);const cap=this.maxFullSlicePoints,chunkCap=500000,posChunks=[],colChunks=[];let hits=0,stored=0;const e=this.alignMatrix.elements,loading=document.getElementById('loadingBox'),lt=document.getElementById('loadingText');if(loading)loading.classList.add('active');function ensure(chunks,ci){if(!chunks[ci])chunks[ci]=new Float32Array(chunkCap*3);return chunks[ci];}function put(slot,x,y,z,r,g,b){const ci=Math.floor(slot/chunkCap),li=slot-ci*chunkCap,po=li*3;let pc=ensure(posChunks,ci),cc=ensure(colChunks,ci);pc[po]=x;pc[po+1]=y;pc[po+2]=z;cc[po]=r;cc[po+1]=g;cc[po+2]=b;}const recPerChunk=600000;try{for(let i0=0;i0<src.n;i0+=recPerChunk){const i1=Math.min(src.n,i0+recPerChunk);const buf=await src.file.slice(src.off+i0*src.len,src.off+i1*src.len).arrayBuffer();const v=new DataView(buf);for(let i=i0;i<i1;i++){const o=(i-i0)*src.len;if(o+12>buf.byteLength)break;const rx=v.getInt32(o,true)*src.sx+src.ox-src.cx,ry=v.getInt32(o+4,true)*src.sy+src.oy-src.cy,rz=v.getInt32(o+8,true)*src.sz+src.oz-src.cz;let x=e[0]*rx+e[4]*ry+e[8]*rz+e[12],y=e[1]*rx+e[5]*ry+e[9]*rz+e[13],z=e[2]*rx+e[6]*ry+e[10]*rz+e[14];const vv=ax===0?x:(ax===1?y:z);if(vv<a||vv>b)continue;hits++;let r=.7,g=.7,bb=.7;if(src.hasC&&o+src.rgbO+6<=buf.byteLength){r=v.getUint16(o+src.rgbO,true)/65535;g=v.getUint16(o+src.rgbO+2,true)/65535;bb=v.getUint16(o+src.rgbO+4,true)/65535;}let slot;if(stored<cap){slot=stored++;}else{const rr=Math.floor(this.rand01(i)*hits);if(rr>=cap)continue;slot=rr;}put(slot,x,y,z,r,g,bb);}
+if(lt)lt.textContent='Full LAS slice '+Math.round(i1/src.n*100)+'%';await new Promise(r=>setTimeout(r,0));}}finally{if(loading)loading.classList.remove('active');}
+const pos=new Float32Array(stored*3),col=new Float32Array(stored*3);let off=0;for(let c=0;c<posChunks.length;c++){const remain=stored-c*chunkCap;if(remain<=0)break;const cnt=Math.min(chunkCap,remain)*3;pos.set(posChunks[c].subarray(0,cnt),off);col.set(colChunks[c].subarray(0,cnt),off);off+=cnt;}this.D.filterIdx=null;this.D.sliceOverride={pos,col,count:stored,hits,plane,start,width};this.sliceState={plane,start,width};this.refreshGeometry();if(!silent)this.setSliceStatus('Срез из полного LAS '+plane+': '+this.axisName(plane)+' '+a.toFixed(3)+'…'+b.toFixed(3)+' м, показано '+stored.toLocaleString()+' из '+hits.toLocaleString()+' точек слоя'+(hits>stored?' (случайно проредил слой)':''),'ok');}
+reapplyCurrentSlice(silent=true){if(!this.sliceState){this.refreshGeometry();return;}if(this.fullLasSource&&this.D.isPreview)this.applyFullSlice(this.sliceState.plane,this.sliceState.start,this.sliceState.width,silent);else this.applySlice(this.sliceState.plane,this.sliceState.start,this.sliceState.width,silent);}
+resetSlice(){if(!this.D.alignedPos)return;this.clearDrawing(false);this.D.filterIdx=null;this.D.sliceOverride=null;this.sliceState=null;this.refreshGeometry();this.setSliceStatus('Срез сброшен: снова показано preview/облако, текущее выравнивание сохранено','ok');}
+
+setDrawStatus(msg,cls){const el=document.getElementById('drawStatus');if(!el)return;el.className='status '+(cls||'');el.textContent=msg;}
+beginDraw(){if(!this.cloud){alert('Сначала откройте облако');return;}if(!this.sliceState||(!this.D.filterIdx&&!this.D.sliceOverride)){alert('Рисование работает только в режиме Slice. Сначала задайте срез и нажмите Show slice.');this.setDrawStatus('Нет активного Slice. Сначала нажмите Show slice','warn');return;}this.tool='draw';this.drawMeasured=false;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.remove('active'));document.body.classList.add('measuring');const b=document.getElementById('drawPickBtn');if(b)b.classList.add('active');this.setDrawStatus('Кликайте в нужное место среза: точка ставится по экранному клику в нижнюю плоскость Slice, а не по ближайшей точке облака. Близкий клик к первой точке замкнет фигуру.','warn');}
+endDrawPick(){if(this.tool==='draw')this.tool='nav';const b=document.getElementById('drawPickBtn');if(b)b.classList.remove('active');const nav=document.querySelector('[data-tool="nav"]');document.querySelectorAll('[data-tool]').forEach(x=>x.classList.remove('active'));if(nav)nav.classList.add('active');document.body.classList.remove('measuring');}
+getActiveShape(create=true){let sh=this.drawShapes[this.drawShapes.length-1];if((!sh||sh.closed)&&create){sh={pts:[],closed:false};this.drawShapes.push(sh);}return sh;}
+worldToScreen(pt){const r=document.getElementById('canvas').getBoundingClientRect();const p=pt.clone().project(this.cam);return{x:(p.x*.5+.5)*r.width+r.left,y:(-p.y*.5+.5)*r.height+r.top};}
+screenToSlicePoint(cx,cy){if(!this.sliceState)return null;const p=this.pickCoords(cx,cy),r=p.r;const m=new THREE.Vector2(((p.cx-r.left)/r.width)*2-1,-((p.cy-r.top)/r.height)*2+1);this.ray.setFromCamera(m,this.cam);const normal=this.targetNormal(this.sliceState.plane).normalize();const ax=this.axisIndex(this.sliceState.plane);const val=Math.min(this.sliceState.start,this.sliceState.start+this.sliceState.width);const pp=new THREE.Vector3();if(ax===0)pp.x=val;else if(ax===1)pp.y=val;else pp.z=val;const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(normal,pp);const out=new THREE.Vector3();return this.ray.ray.intersectPlane(plane,out)?out:null;}
+getDrawPoint(cx,cy){return this.screenToSlicePoint(cx,cy);}
+closeTolerance(){return Math.max(this.currentViewHeight()*0.006,0.025);}
+isNearFirst(sh,pt,cx,cy){if(!sh||sh.pts.length<3)return false;const first=sh.pts[0];if(first.distanceTo(pt)<=this.closeTolerance())return true;const s=this.worldToScreen(first);return Math.hypot(s.x-cx,s.y-cy)<=18;}
+doDrawPick(cx,cy){if(!this.sliceState||(!this.D.filterIdx&&!this.D.sliceOverride)){this.endDrawPick();this.setDrawStatus('Рисование выключено: нет активного Slice','warn');return;}const pt=this.getDrawPoint(cx,cy);if(!pt)return;const sh=this.getActiveShape(true);if(this.isNearFirst(sh,pt,cx,cy)){sh.closed=true;this.currentShape=null;this.drawMeasured=false;this.renderDrawing();this.setDrawStatus('Фигура замкнута. Следующий клик начнет новую независимую фигуру.','ok');return;}sh.pts.push(pt);this.drawMeasured=false;this.renderDrawing();this.setDrawStatus('Точка добавлена. Фигур: '+this.drawShapes.length+', точек в текущей: '+sh.pts.length,'warn');}
+undoDrawPoint(){for(let i=this.drawShapes.length-1;i>=0;i--){const sh=this.drawShapes[i];if(!sh)continue;if(sh.closed){sh.closed=false;this.drawMeasured=false;this.renderDrawing();this.setDrawStatus('Замыкание последней фигуры отменено','ok');return;}if(sh.pts.length){sh.pts.pop();if(!sh.pts.length)this.drawShapes.splice(i,1);this.drawMeasured=false;this.renderDrawing();this.setDrawStatus('Удалена последняя точка','ok');return;}this.drawShapes.splice(i,1);}this.setDrawStatus('Нет точек для отмены','warn');}
+measureDraw(){if(!this.sliceState||(!this.D.filterIdx&&!this.D.sliceOverride)){this.setDrawStatus('Обмер работает только в активном Slice','warn');return;}let segs=0,total=0;for(const sh of this.drawShapes){if(!sh.pts||sh.pts.length<2)continue;for(let i=1;i<sh.pts.length;i++){segs++;total+=sh.pts[i-1].distanceTo(sh.pts[i]);}if(sh.closed&&sh.pts.length>=3){segs++;total+=sh.pts[sh.pts.length-1].distanceTo(sh.pts[0]);}}if(!segs){this.setDrawStatus('Для обмера нужно минимум 2 точки','warn');return;}this.drawMeasured=true;this.renderDrawing();this.setDrawStatus('Обмерено отрезков: '+segs+', суммарно '+total.toFixed(3)+' м','ok');}
+clearDrawGraphics(){this.drawH.forEach(h=>{this.scene.remove(h);if(h.geometry)h.geometry.dispose();if(h.material){if(h.material.map)h.material.map.dispose();h.material.dispose();}});this.drawH=[];}
+clearDrawing(showStatus){this.clearDrawGraphics();this.drawShapes=[];this.drawMeasured=false;this.drawOrthoBackup=null;this.currentShape=null;this.endDrawPick();if(showStatus!==false)this.setDrawStatus('Точки и размеры сброшены','ok');}
+renderDrawing(){this.clearDrawGraphics();for(const sh of this.drawShapes){if(!sh.pts||!sh.pts.length)continue;for(const pt of sh.pts)this.addDrawMarker(pt);for(let i=1;i<sh.pts.length;i++){this.addDrawSegment(sh.pts[i-1],sh.pts[i],this.drawMeasured?0xffcc66:0xffffff);if(this.drawMeasured)this.addDimLabel(sh.pts[i-1],sh.pts[i],i);}if(sh.closed&&sh.pts.length>=3){this.addDrawSegment(sh.pts[sh.pts.length-1],sh.pts[0],this.drawMeasured?0xffcc66:0xffffff);if(this.drawMeasured)this.addDimLabel(sh.pts[sh.pts.length-1],sh.pts[0],sh.pts.length);}}}
+addDrawMarker(pt){const sz=this.markerRadius();const geo=new THREE.SphereGeometry(sz,8,8);const mat=new THREE.MeshBasicMaterial({color:0xff3344,depthTest:false});const s=new THREE.Mesh(geo,mat);s.position.copy(pt);this.scene.add(s);this.drawH.push(s);}
+addDrawSegment(p1,p2,color){const geo=new THREE.BufferGeometry().setFromPoints([p1,p2]);const mat=new THREE.LineBasicMaterial({color,depthTest:false});const ln=new THREE.Line(geo,mat);this.scene.add(ln);this.drawH.push(ln);}
+dimOffset(len,idx){return Math.max(this.currentViewHeight()*0.018,Math.min(len*.045,this.currentViewHeight()*0.055));}
+dimLabelHeight(){return Math.max(this.currentViewHeight()*0.026,0.035);}
+addDimLabel(p1,p2,idx){const v=p2.clone().sub(p1),len=v.length();if(len<1e-9)return;const mid=p1.clone().add(p2).multiplyScalar(.5);const dir=v.clone().normalize();const normal=this.targetNormal(this.sliceState?this.sliceState.plane:'XY').normalize();let off=new THREE.Vector3().crossVectors(normal,dir);if(off.length()<1e-9)off.set(0,1,0);off.normalize();if(idx%2===0)off.negate();off.multiplyScalar(this.dimOffset(len,idx));const labelPos=mid.clone().add(off);const leader=new THREE.Line(new THREE.BufferGeometry().setFromPoints([mid,labelPos]),new THREE.LineBasicMaterial({color:0xffcc66,depthTest:false}));this.scene.add(leader);this.drawH.push(leader);const spr=this.makeTextSprite(len.toFixed(3)+' m',0xffcc66,'rgba(20,20,30,0.68)',220,54);spr.position.copy(labelPos);const h=this.dimLabelHeight();spr.scale.set(h*4.1,h,1);this.scene.add(spr);this.drawH.push(spr);}
+makeTextSprite(text,color,bg,w,h){const cv=document.createElement('canvas');cv.width=w||220;cv.height=h||54;const ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);ctx.fillStyle=bg||'rgba(20,20,30,0.68)';ctx.fillRect(0,0,cv.width,cv.height);ctx.strokeStyle='rgba(255,204,102,0.75)';ctx.lineWidth=1.5;ctx.strokeRect(1,1,cv.width-2,cv.height-2);ctx.fillStyle=typeof color==='number'?'#'+color.toString(16).padStart(6,'0'):color;ctx.font='bold '+Math.floor(cv.height*.42)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,cv.width/2,cv.height/2);const tex=new THREE.CanvasTexture(cv);const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false});return new THREE.Sprite(mat);}
+cloneDrawShapes(src){return (src||this.drawShapes).map(sh=>({closed:!!sh.closed,pts:sh.pts.map(p=>p.clone())}));}
+planeAxes(plane){plane=this.normPlane(plane||this.sliceState?.plane||'XY');if(plane==='XY')return{u:0,v:1,w:2};if(plane==='XZ')return{u:0,v:2,w:1};return{u:1,v:2,w:0};}
+ptTo2D(pt,axes){const a=[pt.x,pt.y,pt.z];return{x:a[axes.u],y:a[axes.v],w:a[axes.w]};}
+ptFrom2D(o,axes){const a=[0,0,0];a[axes.u]=o.x;a[axes.v]=o.y;a[axes.w]=o.w;return new THREE.Vector3(a[0],a[1],a[2]);}
+shapeArea2D(sh,axes){if(!sh.closed||!sh.pts||sh.pts.length<3)return 0;let area=0;for(let i=0;i<sh.pts.length;i++){const a=this.ptTo2D(sh.pts[i],axes),b=this.ptTo2D(sh.pts[(i+1)%sh.pts.length],axes);area+=a.x*b.y-b.x*a.y;}return Math.abs(area)*0.5;}
+largestClosedShape(axes){let best=null,area=0;for(const sh of this.drawShapes){const a=this.shapeArea2D(sh,axes);if(a>area){area=a;best=sh;}}return{shape:best,area};}
+round10mm(v){return Math.round(v/0.01)*0.01;}
+rotate2D(o,c,ang){const ca=Math.cos(ang),sa=Math.sin(ang),x=o.x-c.x,y=o.y-c.y;return{x:c.x+x*ca-y*sa,y:c.y+x*sa+y*ca,w:o.w};}
+orthoAlignDrawing(){
+if(!this.drawShapes.length){this.setDrawStatus('Нет фигур для ортовыравнивания','warn');return;}
+const axes=this.planeAxes(this.sliceState?this.sliceState.plane:'XY');
+const found=this.largestClosedShape(axes);
+if(!found.shape){this.setDrawStatus('Нужна хотя бы одна замкнутая фигура. Замкните ее кликом рядом с первой точкой.','warn');return;}
+this.drawOrthoBackup=this.cloneDrawShapes();
+const snapTol=THREE.MathUtils.degToRad(10);
+const q90=Math.PI/2;
+const roundGrid=v=>this.round10mm(v);
+const normAng=a=>{while(a<=-Math.PI)a+=Math.PI*2;while(a>Math.PI)a-=Math.PI*2;return a;};
+const edgeClass=(a,b)=>{
+ const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+ if(len<1e-9)return{kind:'none',len:0,diff:Infinity};
+ const ang=Math.atan2(dy,dx);
+ const axisAng=Math.round(ang/q90)*q90;
+ const diff=Math.abs(normAng(ang-axisAng));
+ if(diff>snapTol)return{kind:'free',len,diff};
+ const k=Math.round(axisAng/q90);
+ return{kind:(Math.abs(k)%2===0?'H':'V'),len,diff};
+};
+const base=found.shape.pts.map(p=>this.ptTo2D(p,axes));
+let cx=0,cy=0;for(const p of base){cx+=p.x;cy+=p.y;}cx/=base.length;cy/=base.length;const c={x:cx,y:cy};
+let bestLen=-1,bestAng=0;
+for(let i=0;i<base.length;i++){const a=base[i],b=base[(i+1)%base.length],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(len>bestLen){bestLen=len;bestAng=Math.atan2(dy,dx);}}
+let rot=Math.round(bestAng/q90)*q90-bestAng;
+// Немного уточняем общий угол по всем длинным ребрам крупнейшей фигуры, а не только по одному отрезку.
+for(let it=0;it<3;it++){
+ const rp=base.map(p=>this.rotate2D(p,c,rot));
+ let sum=0,ws=0;
+ for(let i=0;i<rp.length;i++){
+  const a=rp[i],b=rp[(i+1)%rp.length],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(len<1e-9)continue;
+  const ang=Math.atan2(dy,dx),axisAng=Math.round(ang/q90)*q90,diff=normAng(ang-axisAng);
+  if(Math.abs(diff)<=snapTol){sum+=diff*len;ws+=len;}
+ }
+ if(ws>0)rot-=sum/ws;
+}
+const makeUF=n=>{const p=Array.from({length:n},(_,i)=>i);const find=i=>{while(p[i]!==i){p[i]=p[p[i]];i=p[i];}return i;};return{p,find,union(a,b){a=find(a);b=find(b);if(a!==b)p[b]=a;}};};
+const solveShape=sh=>{
+ const n=sh.pts.length;if(!n)return{closed:sh.closed,pts:[]};
+ const pts=sh.pts.map(p=>this.rotate2D(this.ptTo2D(p,axes),c,rot));
+ const ux=makeUF(n),uy=makeUF(n);let snapped=0,free=0;
+ const edgeN=sh.closed&&n>=3?n:n-1;
+ for(let i=0;i<edgeN;i++){
+  const j=(i+1)%n,cl=edgeClass(pts[i],pts[j]);
+  if(cl.kind==='H'){uy.union(i,j);snapped++;}
+  else if(cl.kind==='V'){ux.union(i,j);snapped++;}
+  else if(cl.kind==='free')free++;
+ }
+ const gx=new Map(),gy=new Map();
+ for(let i=0;i<n;i++){
+  const rx=ux.find(i),ry=uy.find(i);
+  if(!gx.has(rx))gx.set(rx,[]);gx.get(rx).push(pts[i].x);
+  if(!gy.has(ry))gy.set(ry,[]);gy.get(ry).push(pts[i].y);
+ }
+ const mx=new Map(),my=new Map();
+ gx.forEach((vals,k)=>mx.set(k,roundGrid(vals.reduce((a,b)=>a+b,0)/vals.length)));
+ gy.forEach((vals,k)=>my.set(k,roundGrid(vals.reduce((a,b)=>a+b,0)/vals.length)));
+ const out=[];
+ for(let i=0;i<n;i++)out.push(this.ptFrom2D({x:mx.get(ux.find(i)),y:my.get(uy.find(i)),w:pts[i].w},axes));
+ return{closed:sh.closed,pts:out,_snapped:snapped,_free:free};
+};
+const newShapes=[];let totalSnapped=0,totalFree=0;
+for(const sh of this.drawShapes){const solved=solveShape(sh);totalSnapped+=solved._snapped||0;totalFree+=solved._free||0;delete solved._snapped;delete solved._free;newShapes.push(solved);}
+this.drawShapes=newShapes;
+this.drawMeasured=true;
+this.renderDrawing();
+this.setDrawStatus('Ортовыравнивание v2: все сегменты в пределах 10° от X/Y стали строго горизонтальными/вертикальными, вершины увязаны глобально, координаты округлены до 10 мм. Снапнуто: '+totalSnapped+(totalFree?'; не тронуто наклонных: '+totalFree:''),'ok');
+}
+undoOrthoDrawing(){if(!this.drawOrthoBackup){this.setDrawStatus('Нет сохраненного состояния до ортовыравнивания','warn');return;}this.drawShapes=this.cloneDrawShapes(this.drawOrthoBackup);this.drawOrthoBackup=null;this.drawMeasured=true;this.renderDrawing();this.setDrawStatus('Ортовыравнивание отменено: возвращены исходные выбранные точки','ok');}
+exportDrawingDXF(){let segs=[];for(const sh of this.drawShapes){if(!sh.pts||sh.pts.length<2)continue;for(let i=1;i<sh.pts.length;i++)segs.push([sh.pts[i-1],sh.pts[i]]);if(sh.closed&&sh.pts.length>=3)segs.push([sh.pts[sh.pts.length-1],sh.pts[0]]);}if(!segs.length){this.setDrawStatus('Нет отрезков для DXF','warn');return;}const axes=this.planeAxes(this.sliceState?this.sliceState.plane:'XY');const ent=[];function f(n){return (Math.round(n*1000000)/1000000).toString();}for(const [a,b] of segs){const p1=this.ptTo2D(a,axes),p2=this.ptTo2D(b,axes);ent.push('0','LINE','8','A2_DRAW','10',f(p1.x),'20',f(p1.y),'30','0','11',f(p2.x),'21',f(p2.y),'31','0');}const dxf=['0','SECTION','2','HEADER','9','$ACADVER','1','AC1009','9','$INSUNITS','70','6','0','ENDSEC','0','SECTION','2','ENTITIES',...ent,'0','ENDSEC','0','EOF'].join('\n');const blob=new Blob([dxf],{type:'application/dxf'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='a2_draw_segments.dxf';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);this.setDrawStatus('DXF экспортирован: '+segs.length+' отрезков','ok');}
+hColor(t){const cols=[{r:.1,g:.2,b:.9},{r:.1,g:.8,b:.9},{r:.2,g:.9,b:.3},{r:.9,g:.9,b:.1},{r:.9,g:.2,b:.1}];t=Math.max(0,Math.min(1,t));const i=Math.min(Math.floor(t*4),3),f=t*4-i;return{r:cols[i].r+(cols[i+1].r-cols[i].r)*f,g:cols[i].g+(cols[i+1].g-cols[i].g)*f,b:cols[i].b+(cols[i+1].b-cols[i].b)*f};}
+setMode(m){this.cMode=m;if(!this.cloud||!this.D.alignedPos)return;const col=this.makeVisibleColorArray();this.cloud.geometry.setAttribute('color',new THREE.BufferAttribute(col,3));}
+updMat(){if(this.cloud&&this.cloud.material.uniforms){this.cloud.material.uniforms.ps.value=this.ptSz;this.cloud.material.uniforms.op.value=this.op;}}
+addMarker(pt){const sz=this.sz*0.00015;const geo=new THREE.SphereGeometry(sz,6,6);const mat=new THREE.MeshBasicMaterial({color:0xff3366});const s=new THREE.Mesh(geo,mat);s.position.copy(pt);this.scene.add(s);this.mH.push(s);if(this.mPts.length===2){const lGeo=new THREE.BufferGeometry().setFromPoints([this.mPts[0],this.mPts[1]]);const lMat=new THREE.LineBasicMaterial({color:0xff3366});const ln=new THREE.Line(lGeo,lMat);this.scene.add(ln);this.mH.push(ln);}}
+showDist(){const[p1,p2]=this.mPts;const d=p1.distanceTo(p2);document.getElementById('measureBox').classList.add('visible');document.getElementById('mVal').textContent=d.toFixed(3)+' m';document.getElementById('mDetails').innerHTML='ΔX:<span>'+Math.abs(p2.x-p1.x).toFixed(3)+'</span> ΔY:<span>'+Math.abs(p2.y-p1.y).toFixed(3)+'</span> ΔZ:<span>'+Math.abs(p2.z-p1.z).toFixed(3)+'</span>';this.mPts=[];}
+
+makeCleanPNGCanvas(){
+if(!this.cloud||!this.D||!this.D.alignedPos){alert('Сначала откройте облако');return;}
+const pos=this.makeVisiblePositionArray();
+const count=Math.floor(pos.length/3);
+if(!count){this.setPngStatus('Нет видимых точек для PNG','warn');return;}
+const bg=(document.getElementById('pngBg')&&document.getElementById('pngBg').value)||'transparent';
+const rotDeg=parseFloat((document.getElementById('pngRotate')&&document.getElementById('pngRotate').value)||'0')||0;
+const ang=rotDeg*Math.PI/180,ca=Math.cos(ang),sa=Math.sin(ang);
+const plane=this.sliceState?this.normPlane(this.sliceState.plane):'XY';
+function uvAt(i){const x=pos[i*3],y=pos[i*3+1],z=pos[i*3+2];if(plane==='XY')return [x,y];if(plane==='XZ')return [x,z];return [y,z];}
+let minU=Infinity,maxU=-Infinity,minV=Infinity,maxV=-Infinity;
+for(let i=0;i<count;i++){const uv=uvAt(i),u=uv[0],v=uv[1];if(!isFinite(u)||!isFinite(v))continue;if(u<minU)minU=u;if(u>maxU)maxU=u;if(v<minV)minV=v;if(v>maxV)maxV=v;}
+if(!isFinite(minU)||!isFinite(minV)){this.setPngStatus('Не удалось определить габариты видимого среза','warn');return;}
+const cU=(minU+maxU)/2,cV=(minV+maxV)/2;
+function rotUV(u,v){const du=u-cU,dv=v-cV;return [du*ca-dv*sa,du*sa+dv*ca];}
+let minRU=Infinity,maxRU=-Infinity,minRV=Infinity,maxRV=-Infinity;
+for(let i=0;i<count;i++){const uv=uvAt(i),r=rotUV(uv[0],uv[1]),u=r[0],v=r[1];if(u<minRU)minRU=u;if(u>maxRU)maxRU=u;if(v<minRV)minRV=v;if(v>maxRV)maxRV=v;}
+let worldW=Math.max(maxRU-minRU,0.001),worldH=Math.max(maxRV-minRV,0.001);
+let barLen=Math.ceil(worldW/10)*10;if(!isFinite(barLen)||barLen<=0)barLen=1;if(worldW<=10)barLen=10;
+const paddedW=Math.max(worldW,barLen)*1.12;
+const paddedH=worldH*1.12;
+let scale=100; // px per meter target
+let contentW=Math.ceil(paddedW*scale),contentH=Math.ceil(paddedH*scale);
+const minW=1400,maxW=5200,maxH=5200,maxPixels=26000000;
+if(contentW<minW){scale=minW/paddedW;contentW=Math.ceil(paddedW*scale);contentH=Math.ceil(paddedH*scale);}
+if(contentW>maxW){scale=maxW/paddedW;contentW=Math.ceil(paddedW*scale);contentH=Math.ceil(paddedH*scale);}
+if(contentH>maxH){scale=maxH/paddedH;contentW=Math.ceil(paddedW*scale);contentH=Math.ceil(paddedH*scale);}
+if(contentW*contentH>maxPixels){scale=Math.sqrt(maxPixels/(paddedW*paddedH));contentW=Math.ceil(paddedW*scale);contentH=Math.ceil(paddedH*scale);}
+const footer=125,w=contentW,h=contentH+footer;
+const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');
+if(bg==='white'){ctx.fillStyle='#ffffff';ctx.fillRect(0,0,w,h);}else{ctx.clearRect(0,0,w,h);}
+const offU=-minRU+(paddedW-worldW)/2,offV=-minRV+(paddedH-worldH)/2;
+ctx.fillStyle='#e00000';
+const pxSize=Math.max(1,Math.min(3,Math.round(this.ptSz*1.2)));
+const maxDraw=6000000,step=Math.max(1,Math.ceil(count/maxDraw));
+for(let i=0;i<count;i+=step){const uv=uvAt(i),r=rotUV(uv[0],uv[1]);const x=(r[0]+offU)*scale;const y=(paddedH-(r[1]+offV))*scale;if(x>=-3&&x<=contentW+3&&y>=-3&&y<=contentH+3)ctx.fillRect(Math.round(x),Math.round(y),pxSize,pxSize);}
+const barPx=barLen*scale;const x0=(w-barPx)/2,x1=x0+barPx,yBar=contentH+50;
+ctx.save();ctx.strokeStyle='#e00000';ctx.fillStyle='#e00000';ctx.lineWidth=Math.max(3,Math.round(w/1100));ctx.beginPath();ctx.moveTo(x0,yBar);ctx.lineTo(x1,yBar);ctx.moveTo(x0,yBar-14);ctx.lineTo(x0,yBar+14);ctx.moveTo(x1,yBar-14);ctx.lineTo(x1,yBar+14);ctx.stroke();ctx.font=Math.max(22,Math.round(w/95))+'px Arial, sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(barLen.toFixed(0)+' m',w/2,yBar+22);ctx.font=Math.max(13,Math.round(w/180))+'px Arial, sans-serif';ctx.fillText('A2 scale bar · '+plane+' slice · rotate '+rotDeg.toFixed(1)+'°',w/2,yBar+58);ctx.restore();
+const pngName='a2_'+plane+'_red_slice_'+barLen.toFixed(0)+'m.png';
+return{canvas,plane,barLen,scale,width:w,height:h,bg,step,pngName};
+}
+downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
+saveCleanPNG(){const out=this.makeCleanPNGCanvas();if(!out)return;out.canvas.toBlob(blob=>{if(!blob){this.setPngStatus('Browser could not create PNG','warn');return;}this.downloadBlob(blob,out.pngName);this.setPngStatus('PNG saved: '+out.width+'x'+out.height+' px, scale bar '+out.barLen.toFixed(0)+' m'+(out.step>1?', every '+out.step+'th point drawn':'')+'.','ok');},'image/png');}
+savePNGInDXF(){const out=this.makeCleanPNGCanvas();if(!out)return;out.canvas.toBlob(blob=>{if(!blob){this.setPngStatus('Browser could not create PNG','warn');return;}this.downloadBlob(blob,out.pngName);const dxf=this.makeImageDXF(out),dxfName=out.pngName.replace(/\.png$/i,'.dxf');this.downloadBlob(new Blob([dxf],{type:'application/dxf'}),dxfName);this.setPngStatus('PNG and DXF saved. Scale bar '+out.barLen.toFixed(0)+' m = '+(out.barLen*1000).toFixed(0)+' DXF units (mm). Keep the PNG next to the DXF.','ok');},'image/png');}
+makeImageDXF(o){
+const pxW=o.width,pxH=o.height,mmPerPx=1000/o.scale,file=o.pngName.replace(/[\\/:*?"<>|]/g,'_');
+const f=n=>(Math.round(n*1000000)/1000000).toString();
+const b64=[
+'ICAwDQpTRUNUSU9ODQogIDINCkhFQURFUg0KICA5DQokQUNBRFZFUg0KICAxDQpBQzEwMTUNCiAgOQ0KJEFDQURNQUlOVFZFUg0KIDcwDQo2DQogIDkNCiREV0dDT0RFUEFHRQ0KICAzDQpBTlNJXzEyNTINCiAg',
+'OQ0KJElOU0JBU0UNCiAxMA0KMC4wDQogMjANCjAuMA0KIDMwDQowLjANCiAgOQ0KJEVYVE1JTg0KIDEwDQoxZSsyMA0KIDIwDQoxZSsyMA0KIDMwDQoxZSsyMA0KICA5DQokRVhUTUFYDQogMTANCi0xZSsyMA0K',
+'IDIwDQotMWUrMjANCiAzMA0KLTFlKzIwDQogIDkNCiRMSU1NSU4NCiAxMA0KMC4wDQogMjANCjAuMA0KICA5DQokTElNTUFYDQogMTANCjQyMC4wDQogMjANCjI5Ny4wDQogIDkNCiRPUlRIT01PREUNCiA3MA0K',
+'MA0KICA5DQokUkVHRU5NT0RFDQogNzANCjENCiAgOQ0KJEZJTExNT0RFDQogNzANCjENCiAgOQ0KJFFURVhUTU9ERQ0KIDcwDQowDQogIDkNCiRNSVJSVEVYVA0KIDcwDQoxDQogIDkNCiRMVFNDQUxFDQogNDAN',
+'CjEuMA0KICA5DQokQVRUTU9ERQ0KIDcwDQoxDQogIDkNCiRURVhUU0laRQ0KIDQwDQoyLjUNCiAgOQ0KJFRSQUNFV0lEDQogNDANCjEuMA0KICA5DQokVEVYVFNUWUxFDQogIDcNClN0YW5kYXJkDQogIDkNCiRD',
+'TEFZRVINCiAgOA0KMA0KICA5DQokQ0VMVFlQRQ0KICA2DQpCeUxheWVyDQogIDkNCiRDRUNPTE9SDQogNjINCjI1Ng0KICA5DQokQ0VMVFNDQUxFDQogNDANCjEuMA0KICA5DQokRElTUFNJTEgNCiA3MA0KMA0K',
+'ICA5DQokRElNU0NBTEUNCiA0MA0KMS4wDQogIDkNCiRESU1BU1oNCiA0MA0KMi41DQogIDkNCiRESU1FWE8NCiA0MA0KMC42MjUNCiAgOQ0KJERJTURMSQ0KIDQwDQozLjc1DQogIDkNCiRESU1STkQNCiA0MA0K',
+'MC4wDQogIDkNCiRESU1ETEUNCiA0MA0KMC4wDQogIDkNCiRESU1FWEUNCiA0MA0KMS4yNQ0KICA5DQokRElNVFANCiA0MA0KMC4wDQogIDkNCiRESU1UTQ0KIDQwDQowLjANCiAgOQ0KJERJTVRYVA0KIDQwDQoy',
+'LjUNCiAgOQ0KJERJTUNFTg0KIDQwDQoyLjUNCiAgOQ0KJERJTVRTWg0KIDQwDQowLjANCiAgOQ0KJERJTVRPTA0KIDcwDQowDQogIDkNCiRESU1MSU0NCiA3MA0KMA0KICA5DQokRElNVElIDQogNzANCjANCiAg',
+'OQ0KJERJTVRPSA0KIDcwDQowDQogIDkNCiRESU1TRTENCiA3MA0KMA0KICA5DQokRElNU0UyDQogNzANCjANCiAgOQ0KJERJTVRBRA0KIDcwDQoxDQogIDkNCiRESU1aSU4NCiA3MA0KOA0KICA5DQokRElNQkxL',
+'DQogIDENCg0KICA5DQokRElNQVNPDQogNzANCjENCiAgOQ0KJERJTVNITw0KIDcwDQoxDQogIDkNCiRESU1QT1NUDQogIDENCg0KICA5DQokRElNQVBPU1QNCiAgMQ0KDQogIDkNCiRESU1BTFQNCiA3MA0KMA0K',
+'ICA5DQokRElNQUxURA0KIDcwDQozDQogIDkNCiRESU1BTFRGDQogNDANCjAuMDM5MzcwMDc4NzQNCiAgOQ0KJERJTUxGQUMNCiA0MA0KMS4wDQogIDkNCiRESU1UT0ZMDQogNzANCjENCiAgOQ0KJERJTVRWUA0K',
+'IDQwDQowLjANCiAgOQ0KJERJTVRJWA0KIDcwDQowDQogIDkNCiRESU1TT1hEDQogNzANCjANCiAgOQ0KJERJTVNBSA0KIDcwDQowDQogIDkNCiRESU1CTEsxDQogIDENCg0KICA5DQokRElNQkxLMg0KICAxDQoN',
+'CiAgOQ0KJERJTVNUWUxFDQogIDINCklTTy0yNQ0KICA5DQokRElNQ0xSRA0KIDcwDQowDQogIDkNCiRESU1DTFJFDQogNzANCjANCiAgOQ0KJERJTUNMUlQNCiA3MA0KMA0KICA5DQokRElNVEZBQw0KIDQwDQox',
+'LjANCiAgOQ0KJERJTUdBUA0KIDQwDQowLjYyNQ0KICA5DQokRElNSlVTVA0KIDcwDQowDQogIDkNCiRESU1TRDENCiA3MA0KMA0KICA5DQokRElNU0QyDQogNzANCjANCiAgOQ0KJERJTVRPTEoNCiA3MA0KMA0K',
+'ICA5DQokRElNVFpJTg0KIDcwDQo4DQogIDkNCiRESU1BTFRaDQogNzANCjANCiAgOQ0KJERJTUFMVFRaDQogNzANCjANCiAgOQ0KJERJTVVQVA0KIDcwDQowDQogIDkNCiRESU1ERUMNCiA3MA0KMg0KICA5DQok',
+'RElNVERFQw0KIDcwDQoyDQogIDkNCiRESU1BTFRVDQogNzANCjINCiAgOQ0KJERJTUFMVFREDQogNzANCjMNCiAgOQ0KJERJTVRYU1RZDQogIDcNClN0YW5kYXJkDQogIDkNCiRESU1BVU5JVA0KIDcwDQowDQog',
+'IDkNCiRESU1BREVDDQogNzANCjANCiAgOQ0KJERJTUFMVFJORA0KIDQwDQowLjANCiAgOQ0KJERJTUFaSU4NCiA3MA0KMA0KICA5DQokRElNRFNFUA0KIDcwDQo0NA0KICA5DQokRElNQVRGSVQNCiA3MA0KMw0K',
+'ICA5DQokRElNRlJBQw0KIDcwDQowDQogIDkNCiRESU1MRFJCTEsNCiAgMQ0KDQogIDkNCiRESU1MVU5JVA0KIDcwDQoyDQogIDkNCiRESU1MV0QNCiA3MA0KLTINCiAgOQ0KJERJTUxXRQ0KIDcwDQotMg0KICA5',
+'DQokRElNVE1PVkUNCiA3MA0KMA0KICA5DQokTFVOSVRTDQogNzANCjINCiAgOQ0KJExVUFJFQw0KIDcwDQo0DQogIDkNCiRTS0VUQ0hJTkMNCiA0MA0KMS4wDQogIDkNCiRGSUxMRVRSQUQNCiA0MA0KMTAuMA0K',
+'ICA5DQokQVVOSVRTDQogNzANCjANCiAgOQ0KJEFVUFJFQw0KIDcwDQoyDQogIDkNCiRNRU5VDQogIDENCi4NCiAgOQ0KJEVMRVZBVElPTg0KIDQwDQowLjANCiAgOQ0KJFBFTEVWQVRJT04NCiA0MA0KMC4wDQog',
+'IDkNCiRUSElDS05FU1MNCiA0MA0KMC4wDQogIDkNCiRMSU1DSEVDSw0KIDcwDQowDQogIDkNCiRDSEFNRkVSQQ0KIDQwDQowLjANCiAgOQ0KJENIQU1GRVJCDQogNDANCjAuMA0KICA5DQokQ0hBTUZFUkMNCiA0',
+'MA0KMC4wDQogIDkNCiRDSEFNRkVSRA0KIDQwDQowLjANCiAgOQ0KJFNLUE9MWQ0KIDcwDQowDQogIDkNCiRURENSRUFURQ0KIDQwDQoyNDYxMjE1LjY4ODM0NDkwNzUNCiAgOQ0KJFREVUNSRUFURQ0KIDQwDQoy',
+'NDU4NTMyLjE1Mzk5Njg5OA0KICA5DQokVERVUERBVEUNCiA0MA0KMjQ2MTIxNS42ODgzNDQ5MDc1DQogIDkNCiRURFVVUERBVEUNCiA0MA0KMjQ1ODUzMi4xNTQ0MzExDQogIDkNCiRURElORFdHDQogNDANCjAu',
+'MA0KICA5DQokVERVU1JUSU1FUg0KIDQwDQowLjANCiAgOQ0KJFVTUlRJTUVSDQogNzANCjENCiAgOQ0KJEFOR0JBU0UNCiA1MA0KMC4wDQogIDkNCiRBTkdESVINCiA3MA0KMA0KICA5DQokUERNT0RFDQogNzAN',
+'CjANCiAgOQ0KJFBEU0laRQ0KIDQwDQowLjANCiAgOQ0KJFBMSU5FV0lEDQogNDANCjAuMA0KICA5DQokU1BMRlJBTUUNCiA3MA0KMA0KICA5DQokU1BMSU5FVFlQRQ0KIDcwDQo2DQogIDkNCiRTUExJTkVTRUdT',
+'DQogNzANCjgNCiAgOQ0KJEhBTkRTRUVEDQogIDUNCjM3DQogIDkNCiRTVVJGVEFCMQ0KIDcwDQo2DQogIDkNCiRTVVJGVEFCMg0KIDcwDQo2DQogIDkNCiRTVVJGVFlQRQ0KIDcwDQo2DQogIDkNCiRTVVJGVQ0K',
+'IDcwDQo2DQogIDkNCiRTVVJGVg0KIDcwDQo2DQogIDkNCiRVQ1NCQVNFDQogIDINCg0KICA5DQokVUNTTkFNRQ0KICAyDQoNCiAgOQ0KJFVDU09SRw0KIDEwDQowLjANCiAyMA0KMC4wDQogMzANCjAuMA0KICA5',
+'DQokVUNTWERJUg0KIDEwDQoxLjANCiAyMA0KMC4wDQogMzANCjAuMA0KICA5DQokVUNTWURJUg0KIDEwDQowLjANCiAyMA0KMS4wDQogMzANCjAuMA0KICA5DQokVUNTT1JUSE9SRUYNCiAgMg0KDQogIDkNCiRV',
+'Q1NPUlRIT1ZJRVcNCiA3MA0KMA0KICA5DQokVUNTT1JHVE9QDQogMTANCjAuMA0KIDIwDQowLjANCiAzMA0KMC4wDQogIDkNCiRVQ1NPUkdCT1RUT00NCiAxMA0KMC4wDQogMjANCjAuMA0KIDMwDQowLjANCiAg',
+'OQ0KJFVDU09SR0xFRlQNCiAxMA0KMC4wDQogMjANCjAuMA0KIDMwDQowLjANCiAgOQ0KJFVDU09SR1JJR0hUDQogMTANCjAuMA0KIDIwDQowLjANCiAzMA0KMC4wDQogIDkNCiRVQ1NPUkdGUk9OVA0KIDEwDQow',
+'LjANCiAyMA0KMC4wDQogMzANCjAuMA0KICA5DQokVUNTT1JHQkFDSw0KIDEwDQowLjANCiAyMA0KMC4wDQogMzANCjAuMA0KICA5DQokUFVDU0JBU0UNCiAgMg0KDQogIDkNCiRQVUNTTkFNRQ0KICAyDQoNCiAg',
+'OQ0KJFBVQ1NPUkcNCiAxMA0KMC4wDQogMjANCjAuMA0KIDMwDQowLjANCiAgOQ0KJFBVQ1NYRElSDQogMTANCjEuMA0KIDIwDQowLjANCiAzMA0KMC4wDQogIDkNCiRQVUNTWURJUg0KIDEwDQowLjANCiAyMA0K',
+'MS4wDQogMzANCjAuMA0KICA5DQokUFVDU09SVEhPUkVGDQogIDINCg0KICA5DQokUFVDU09SVEhPVklFVw0KIDcwDQowDQogIDkNCiRQVUNTT1JHVE9QDQogMTANCjAuMA0KIDIwDQowLjANCiAzMA0KMC4wDQog',
+'IDkNCiRQVUNTT1JHQk9UVE9NDQogMTANCjAuMA0KIDIwDQowLjANCiAzMA0KMC4wDQogIDkNCiRQVUNTT1JHTEVGVA0KIDEwDQowLjANCiAyMA0KMC4wDQogMzANCjAuMA0KICA5DQokUFVDU09SR1JJR0hUDQog',
+'MTANCjAuMA0KIDIwDQowLjANCiAzMA0KMC4wDQogIDkNCiRQVUNTT1JHRlJPTlQNCiAxMA0KMC4wDQogMjANCjAuMA0KIDMwDQowLjANCiAgOQ0KJFBVQ1NPUkdCQUNLDQogMTANCjAuMA0KIDIwDQowLjANCiAz',
+'MA0KMC4wDQogIDkNCiRVU0VSSTENCiA3MA0KMA0KICA5DQokVVNFUkkyDQogNzANCjANCiAgOQ0KJFVTRVJJMw0KIDcwDQowDQogIDkNCiRVU0VSSTQNCiA3MA0KMA0KICA5DQokVVNFUkk1DQogNzANCjANCiAg',
+'OQ0KJFVTRVJSMQ0KIDQwDQowLjANCiAgOQ0KJFVTRVJSMg0KIDQwDQowLjANCiAgOQ0KJFVTRVJSMw0KIDQwDQowLjANCiAgOQ0KJFVTRVJSNA0KIDQwDQowLjANCiAgOQ0KJFVTRVJSNQ0KIDQwDQowLjANCiAg',
+'OQ0KJFdPUkxEVklFVw0KIDcwDQoxDQogIDkNCiRTSEFERURHRQ0KIDcwDQozDQogIDkNCiRTSEFERURJRg0KIDcwDQo3MA0KICA5DQokVElMRU1PREUNCiA3MA0KMQ0KICA5DQokTUFYQUNUVlANCiA3MA0KNjQN',
+'CiAgOQ0KJFBJTlNCQVNFDQogMTANCjAuMA0KIDIwDQowLjANCiAzMA0KMC4wDQogIDkNCiRQTElNQ0hFQ0sNCiA3MA0KMA0KICA5DQokUEVYVE1JTg0KIDEwDQoxZSsyMA0KIDIwDQoxZSsyMA0KIDMwDQoxZSsy',
+'MA0KICA5DQokUEVYVE1BWA0KIDEwDQotMWUrMjANCiAyMA0KLTFlKzIwDQogMzANCi0xZSsyMA0KICA5DQokUExJTU1JTg0KIDEwDQowLjANCiAyMA0KMC4wDQogIDkNCiRQTElNTUFYDQogMTANCjQyMC4wDQog',
+'MjANCjI5Ny4wDQogIDkNCiRVTklUTU9ERQ0KIDcwDQowDQogIDkNCiRWSVNSRVRBSU4NCiA3MA0KMQ0KICA5DQokUExJTkVHRU4NCiA3MA0KMA0KICA5DQokUFNMVFNDQUxFDQogNzANCjENCiAgOQ0KJFRSRUVE',
+'RVBUSA0KIDcwDQozMDIwDQogIDkNCiRDTUxTVFlMRQ0KICAyDQpTdGFuZGFyZA0KICA5DQokQ01MSlVTVA0KIDcwDQowDQogIDkNCiRDTUxTQ0FMRQ0KIDQwDQoyMC4wDQogIDkNCiRQUk9YWUdSQVBISUNTDQog',
+'NzANCjENCiAgOQ0KJE1FQVNVUkVNRU5UDQogNzANCjENCiAgOQ0KJENFTFdFSUdIVA0KMzcwDQotMQ0KICA5DQokRU5EQ0FQUw0KMjgwDQowDQogIDkNCiRKT0lOU1RZTEUNCjI4MA0KMA0KICA5DQokTFdESVNQ',
+'TEFZDQoyOTANCjANCiAgOQ0KJElOU1VOSVRTDQogNzANCjQNCiAgOQ0KJEhZUEVSTElOS0JBU0UNCiAgMQ0KDQogIDkNCiRTVFlMRVNIRUVUDQogIDENCg0KICA5DQokWEVESVQNCjI5MA0KMQ0KICA5DQokQ0VQ',
+'U05UWVBFDQozODANCjANCiAgOQ0KJFBTVFlMRU1PREUNCjI5MA0KMQ0KICA5DQokRklOR0VSUFJJTlRHVUlEDQogIDINCns3M0NCMTA3Ny1GODAyLTRFMUItQUZEMy0yNUM5NUJEOEVDNzd9DQogIDkNCiRWRVJT',
+'SU9OR1VJRA0KICAyDQp7RDUwM0FCQ0UtRUQ2Ri00QTI2LThEODYtNjMxN0E5RkZBMzcwfQ0KICA5DQokRVhUTkFNRVMNCjI5MA0KMQ0KICA5DQokUFNWUFNDQUxFDQogNDANCjAuMA0KICA5DQokT0xFU1RBUlRV',
+'UA0KMjkwDQowDQogIDANCkVORFNFQw0KICAwDQpTRUNUSU9ODQogIDINCkNMQVNTRVMNCiAgMA0KQ0xBU1MNCiAgMQ0KQUNEQkRJQ1RJT05BUllXREZMVA0KICAyDQpBY0RiRGljdGlvbmFyeVdpdGhEZWZhdWx0',
+'DQogIDMNCk9iamVjdERCWCBDbGFzc2VzDQogOTANCjANCjI4MA0KMA0KMjgxDQowDQogIDANCkNMQVNTDQogIDENClNVTg0KICAyDQpBY0RiU3VuDQogIDMNClNDRU5FT0UNCiA5MA0KMTE1Mw0KMjgwDQowDQoy',
+'ODENCjANCiAgMA0KQ0xBU1MNCiAgMQ0KVklTVUFMU1RZTEUNCiAgMg0KQWNEYlZpc3VhbFN0eWxlDQogIDMNCk9iamVjdERCWCBDbGFzc2VzDQogOTANCjQwOTUNCjI4MA0KMA0KMjgxDQowDQogIDANCkNMQVNT',
+'DQogIDENCk1BVEVSSUFMDQogIDINCkFjRGJNYXRlcmlhbA0KICAzDQpPYmplY3REQlggQ2xhc3Nlcw0KIDkwDQoxMTUzDQoyODANCjANCjI4MQ0KMA0KICAwDQpDTEFTUw0KICAxDQpTQ0FMRQ0KICAyDQpBY0Ri',
+'U2NhbGUNCiAgMw0KT2JqZWN0REJYIENsYXNzZXMNCiA5MA0KMTE1Mw0KMjgwDQowDQoyODENCjANCiAgMA0KQ0xBU1MNCiAgMQ0KVEFCTEVTVFlMRQ0KICAyDQpBY0RiVGFibGVTdHlsZQ0KICAzDQpPYmplY3RE',
+'QlggQ2xhc3Nlcw0KIDkwDQo0MDk1DQoyODANCjANCjI4MQ0KMA0KICAwDQpDTEFTUw0KICAxDQpNTEVBREVSU1RZTEUNCiAgMg0KQWNEYk1MZWFkZXJTdHlsZQ0KICAzDQpBQ0RCX01MRUFERVJTVFlMRV9DTEFT',
+'Uw0KIDkwDQo0MDk1DQoyODANCjANCjI4MQ0KMA0KICAwDQpDTEFTUw0KICAxDQpESUNUSU9OQVJZVkFSDQogIDINCkFjRGJEaWN0aW9uYXJ5VmFyDQogIDMNCk9iamVjdERCWCBDbGFzc2VzDQogOTANCjANCjI4',
+'MA0KMA0KMjgxDQowDQogIDANCkNMQVNTDQogIDENCkNFTExTVFlMRU1BUA0KICAyDQpBY0RiQ2VsbFN0eWxlTWFwDQogIDMNCk9iamVjdERCWCBDbGFzc2VzDQogOTANCjExNTINCjI4MA0KMA0KMjgxDQowDQog',
+'IDANCkNMQVNTDQogIDENCk1FTlRBTFJBWVJFTkRFUlNFVFRJTkdTDQogIDINCkFjRGJNZW50YWxSYXlSZW5kZXJTZXR0aW5ncw0KICAzDQpTQ0VORU9FDQogOTANCjEwMjQNCjI4MA0KMA0KMjgxDQowDQogIDAN',
+'CkNMQVNTDQogIDENCkFDREJERVRBSUxWSUVXU1RZTEUNCiAgMg0KQWNEYkRldGFpbFZpZXdTdHlsZQ0KICAzDQpPYmplY3REQlggQ2xhc3Nlcw0KIDkwDQoxMDI1DQoyODANCjANCjI4MQ0KMA0KICAwDQpDTEFT',
+'Uw0KICAxDQpBQ0RCU0VDVElPTlZJRVdTVFlMRQ0KICAyDQpBY0RiU2VjdGlvblZpZXdTdHlsZQ0KICAzDQpPYmplY3REQlggQ2xhc3Nlcw0KIDkwDQoxMDI1DQoyODANCjANCjI4MQ0KMA0KICAwDQpDTEFTUw0K',
+'ICAxDQpSQVNURVJWQVJJQUJMRVMNCiAgMg0KQWNEYlJhc3RlclZhcmlhYmxlcw0KICAzDQpJU00NCiA5MA0KMA0KMjgwDQowDQoyODENCjANCiAgMA0KQ0xBU1MNCiAgMQ0KQUNEQlBMQUNFSE9MREVSDQogIDIN',
+'CkFjRGJQbGFjZUhvbGRlcg0KICAzDQpPYmplY3REQlggQ2xhc3Nlcw0KIDkwDQowDQoyODANCjANCjI4MQ0KMA0KICAwDQpDTEFTUw0KICAxDQpMQVlPVVQNCiAgMg0KQWNEYkxheW91dA0KICAzDQpPYmplY3RE',
+'QlggQ2xhc3Nlcw0KIDkwDQowDQoyODANCjANCjI4MQ0KMA0KICAwDQpDTEFTUw0KICAxDQpJTUFHRQ0KICAyDQpBY0RiUmFzdGVySW1hZ2UNCiAgMw0KSVNNDQogOTANCjIxNzUNCjI4MA0KMA0KMjgxDQoxDQog',
+'IDANCkNMQVNTDQogIDENCklNQUdFREVGDQogIDINCkFjRGJSYXN0ZXJJbWFnZURlZg0KICAzDQpJU00NCiA5MA0KMA0KMjgwDQowDQoyODENCjANCiAgMA0KQ0xBU1MNCiAgMQ0KSU1BR0VERUZfUkVBQ1RPUg0K',
+'ICAyDQpBY0RiUmFzdGVySW1hZ2VEZWZSZWFjdG9yDQogIDMNCklTTQ0KIDkwDQoxDQoyODANCjANCjI4MQ0KMA0KICAwDQpFTkRTRUMNCiAgMA0KU0VDVElPTg0KICAyDQpUQUJMRVMNCiAgMA0KVEFCTEUNCiAg',
+'Mg0KVlBPUlQNCiAgNQ0KOA0KMzMwDQowDQoxMDANCkFjRGJTeW1ib2xUYWJsZQ0KIDcwDQoxDQogIDANClZQT1JUDQogIDUNCjIzDQozMzANCjgNCjEwMA0KQWNEYlN5bWJvbFRhYmxlUmVjb3JkDQoxMDANCkFj',
+'RGJWaWV3cG9ydFRhYmxlUmVjb3JkDQogIDINCipBY3RpdmUNCiA3MA0KMA0KIDEwDQowLjANCiAyMA0KMC4wDQogMTENCjEuMA0KIDIxDQoxLjANCiAxMg0KMC4wDQogMjINCjAuMA0KIDEzDQowLjANCiAyMw0K',
+'MC4wDQogMTQNCjAuNQ0KIDI0DQowLjUNCiAxNQ0KMC41DQogMjUNCjAuNQ0KIDE2DQowLjANCiAyNg0KMC4wDQogMzYNCjEuMA0KIDE3DQowLjANCiAyNw0KMC4wDQogMzcNCjAuMA0KIDQwDQoxMDAwLjANCiA0',
+'MQ0KMS4zNA0KIDQyDQo1MC4wDQogNDMNCjAuMA0KIDQ0DQowLjANCiA1MA0KMC4wDQogNTENCjAuMA0KIDcxDQowDQogNzINCjEwMDANCiA3Mw0KMQ0KIDc0DQozDQogNzUNCjANCiA3Ng0KMA0KIDc3DQowDQog',
+'NzgNCjANCjI4MQ0KMA0KIDY1DQowDQoxNDYNCjAuMA0KICAwDQpFTkRUQUINCiAgMA0KVEFCTEUNCiAgMg0KTFRZUEUNCiAgNQ0KMg0KMzMwDQowDQoxMDANCkFjRGJTeW1ib2xUYWJsZQ0KIDcwDQozDQogIDAN',
+'CkxUWVBFDQogIDUNCjI0DQozMzANCjINCjEwMA0KQWNEYlN5bWJvbFRhYmxlUmVjb3JkDQoxMDANCkFjRGJMaW5ldHlwZVRhYmxlUmVjb3JkDQogIDINCkJ5QmxvY2sNCiA3MA0KMA0KICAzDQoNCiA3Mg0KNjUN',
+'CiA3Mw0KMA0KIDQwDQowLjANCiAgMA0KTFRZUEUNCiAgNQ0KMjUNCjMzMA0KMg0KMTAwDQpBY0RiU3ltYm9sVGFibGVSZWNvcmQNCjEwMA0KQWNEYkxpbmV0eXBlVGFibGVSZWNvcmQNCiAgMg0KQnlMYXllcg0K',
+'IDcwDQowDQogIDMNCg0KIDcyDQo2NQ0KIDczDQowDQogNDANCjAuMA0KICAwDQpMVFlQRQ0KICA1DQoyNg0KMzMwDQoyDQoxMDANCkFjRGJTeW1ib2xUYWJsZVJlY29yZA0KMTAwDQpBY0RiTGluZXR5cGVUYWJs',
+'ZVJlY29yZA0KICAyDQpDb250aW51b3VzDQogNzANCjANCiAgMw0KDQogNzINCjY1DQogNzMNCjANCiA0MA0KMC4wDQogIDANCkVORFRBQg0KICAwDQpUQUJMRQ0KICAyDQpMQVlFUg0KICA1DQoxDQozMzANCjAN',
+'CjEwMA0KQWNEYlN5bWJvbFRhYmxlDQogNzANCjINCiAgMA0KTEFZRVINCiAgNQ0KMjcNCjMzMA0KMQ0KMTAwDQpBY0RiU3ltYm9sVGFibGVSZWNvcmQNCjEwMA0KQWNEYkxheWVyVGFibGVSZWNvcmQNCiAgMg0K',
+'MA0KIDcwDQowDQogNjINCjcNCiAgNg0KQ29udGludW91cw0KMzcwDQotMw0KMzkwDQoxMw0KICAwDQpMQVlFUg0KICA1DQoyOA0KMzMwDQoxDQoxMDANCkFjRGJTeW1ib2xUYWJsZVJlY29yZA0KMTAwDQpBY0Ri',
+'TGF5ZXJUYWJsZVJlY29yZA0KICAyDQpEZWZwb2ludHMNCiA3MA0KMA0KIDYyDQo3DQogIDYNCkNvbnRpbnVvdXMNCjI5MA0KMA0KMzcwDQotMw0KMzkwDQoxMw0KICAwDQpFTkRUQUINCiAgMA0KVEFCTEUNCiAg',
+'Mg0KU1RZTEUNCiAgNQ0KNQ0KMzMwDQowDQoxMDANCkFjRGJTeW1ib2xUYWJsZQ0KIDcwDQoxDQogIDANClNUWUxFDQogIDUNCjI5DQozMzANCjUNCjEwMA0KQWNEYlN5bWJvbFRhYmxlUmVjb3JkDQoxMDANCkFj',
+'RGJUZXh0U3R5bGVUYWJsZVJlY29yZA0KICAyDQpTdGFuZGFyZA0KIDcwDQowDQogNDANCjAuMA0KIDQxDQoxLjANCiA1MA0KMC4wDQogNzENCjANCiA0Mg0KMi41DQogIDMNCnR4dA0KICA0DQoNCiAgMA0KRU5E',
+'VEFCDQogIDANClRBQkxFDQogIDINClZJRVcNCiAgNQ0KNw0KMzMwDQowDQoxMDANCkFjRGJTeW1ib2xUYWJsZQ0KIDcwDQowDQogIDANCkVORFRBQg0KICAwDQpUQUJMRQ0KICAyDQpVQ1MNCiAgNQ0KNg0KMzMw',
+'DQowDQoxMDANCkFjRGJTeW1ib2xUYWJsZQ0KIDcwDQowDQogIDANCkVORFRBQg0KICAwDQpUQUJMRQ0KICAyDQpBUFBJRA0KICA1DQozDQozMzANCjANCjEwMA0KQWNEYlN5bWJvbFRhYmxlDQogNzANCjMNCiAg',
+'MA0KQVBQSUQNCiAgNQ0KMkENCjMzMA0KMw0KMTAwDQpBY0RiU3ltYm9sVGFibGVSZWNvcmQNCjEwMA0KQWNEYlJlZ0FwcFRhYmxlUmVjb3JkDQogIDINCkFDQUQNCiA3MA0KMA0KICAwDQpBUFBJRA0KICA1DQoz',
+'NA0KMzMwDQozDQoxMDANCkFjRGJTeW1ib2xUYWJsZVJlY29yZA0KMTAwDQpBY0RiUmVnQXBwVGFibGVSZWNvcmQNCiAgMg0KSEFUQ0hCQUNLR1JPVU5EQ09MT1INCiA3MA0KMA0KICAwDQpBUFBJRA0KICA1DQoz',
+'NQ0KMzMwDQozDQoxMDANCkFjRGJTeW1ib2xUYWJsZVJlY29yZA0KMTAwDQpBY0RiUmVnQXBwVGFibGVSZWNvcmQNCiAgMg0KRVpEWEYNCiA3MA0KMA0KICAwDQpFTkRUQUINCiAgMA0KVEFCTEUNCiAgMg0KRElN',
+'U1RZTEUNCiAgNQ0KNA0KMzMwDQowDQoxMDANCkFjRGJTeW1ib2xUYWJsZQ0KIDcwDQoxDQoxMDANCkFjRGJEaW1TdHlsZVRhYmxlDQogIDANCkRJTVNUWUxFDQoxMDUNCjJCDQozMzANCjQNCjEwMA0KQWNEYlN5',
+'bWJvbFRhYmxlUmVjb3JkDQoxMDANCkFjRGJEaW1TdHlsZVRhYmxlUmVjb3JkDQogIDINClN0YW5kYXJkDQogNzANCjANCiAgMw0KDQogIDQNCg0KIDQwDQoxLjANCiA0MQ0KMi41DQogNDINCjAuNjI1DQogNDMN',
+'CjMuNzUNCiA0NA0KMS4yNQ0KIDQ1DQowLjANCiA0Ng0KMC4wDQogNDcNCjAuMA0KIDQ4DQowLjANCjE0MA0KMi41DQoxNDENCjIuNQ0KMTQyDQowLjANCjE0Mw0KMC4wMzkzNzAwNzg3NA0KMTQ0DQoxLjANCjE0',
+'NQ0KMC4wDQoxNDYNCjEuMA0KMTQ3DQowLjYyNQ0KMTQ4DQowLjANCiA3MQ0KMA0KIDcyDQowDQogNzMNCjANCiA3NA0KMA0KIDc1DQowDQogNzYNCjANCiA3Nw0KMQ0KIDc4DQo4DQogNzkNCjMNCjE3MA0KMA0K',
+'MTcxDQozDQoxNzINCjENCjE3Mw0KMA0KMTc0DQowDQoxNzUNCjANCjE3Ng0KMA0KMTc3DQowDQoxNzgNCjANCjE3OQ0KMg0KMjcxDQoyDQoyNzINCjINCjI3Mw0KMg0KMjc0DQozDQoyNzUNCjANCjI3Ng0KMA0K',
+'Mjc3DQoyDQoyNzgNCjQ0DQoyNzkNCjANCjI4MA0KMA0KMjgxDQowDQoyODINCjANCjI4Mw0KMA0KMjg0DQo4DQoyODUNCjANCjI4Ng0KMA0KMjg4DQowDQoyODkNCjMNCjM3MQ0KLTINCjM3Mg0KLTINCiAgMA0K',
+'RU5EVEFCDQogIDANClRBQkxFDQogIDINCkJMT0NLX1JFQ09SRA0KICA1DQo5DQozMzANCjANCjEwMA0KQWNEYlN5bWJvbFRhYmxlDQogNzANCjINCiAgMA0KQkxPQ0tfUkVDT1JEDQogIDUNCjE3DQozMzANCjkN',
+'CjEwMA0KQWNEYlN5bWJvbFRhYmxlUmVjb3JkDQoxMDANCkFjRGJCbG9ja1RhYmxlUmVjb3JkDQogIDINCipNb2RlbF9TcGFjZQ0KMzQwDQoxQQ0KICAwDQpCTE9DS19SRUNPUkQNCiAgNQ0KMUINCjMzMA0KOQ0K',
+'MTAwDQpBY0RiU3ltYm9sVGFibGVSZWNvcmQNCjEwMA0KQWNEYkJsb2NrVGFibGVSZWNvcmQNCiAgMg0KKlBhcGVyX1NwYWNlDQozNDANCjFFDQogIDANCkVORFRBQg0KICAwDQpFTkRTRUMNCiAgMA0KU0VDVElP',
+'Tg0KICAyDQpCTE9DS1MNCiAgMA0KQkxPQ0sNCiAgNQ0KMTgNCjMzMA0KMTcNCjEwMA0KQWNEYkVudGl0eQ0KICA4DQowDQoxMDANCkFjRGJCbG9ja0JlZ2luDQogIDINCipNb2RlbF9TcGFjZQ0KIDcwDQowDQog',
+'MTANCjAuMA0KIDIwDQowLjANCiAzMA0KMC4wDQogIDMNCipNb2RlbF9TcGFjZQ0KICAxDQoNCiAgMA0KRU5EQkxLDQogIDUNCjE5DQozMzANCjE3DQoxMDANCkFjRGJFbnRpdHkNCiAgOA0KMA0KMTAwDQpBY0Ri',
+'QmxvY2tFbmQNCiAgMA0KQkxPQ0sNCiAgNQ0KMUMNCjMzMA0KMUINCjEwMA0KQWNEYkVudGl0eQ0KICA4DQowDQoxMDANCkFjRGJCbG9ja0JlZ2luDQogIDINCipQYXBlcl9TcGFjZQ0KIDcwDQowDQogMTANCjAu',
+'MA0KIDIwDQowLjANCiAzMA0KMC4wDQogIDMNCipQYXBlcl9TcGFjZQ0KICAxDQoNCiAgMA0KRU5EQkxLDQogIDUNCjFEDQozMzANCjFCDQoxMDANCkFjRGJFbnRpdHkNCiAgOA0KMA0KMTAwDQpBY0RiQmxvY2tF',
+'bmQNCiAgMA0KRU5EU0VDDQogIDANClNFQ1RJT04NCiAgMg0KRU5USVRJRVMNCiAgMA0KSU1BR0UNCiAgNQ0KMzINCjMzMA0KMTcNCjEwMA0KQWNEYkVudGl0eQ0KICA4DQowDQoxMDANCkFjRGJSYXN0ZXJJbWFn',
+'ZQ0KIDkwDQowDQogMTANCjAuMA0KIDIwDQowLjANCiAzMA0KMC4wDQogMTENCjUwLjANCiAyMQ0KMC4wDQogMzENCjAuMA0KIDEyDQozLjA2MTYxNjk5Nzg2ODM4M2UtMTUNCiAyMg0KNTAuMA0KIDMyDQowLjAN',
+'CiAxMw0KMTQwMC4wDQogMjMNCjYwMC4wDQozNDANCjMxDQogNzANCjMNCjI4MA0KMA0KMjgxDQo1MA0KMjgyDQo1MA0KMjgzDQowDQozNjANCjMzDQogNzENCjENCiA5MQ0KMg0KIDE0DQotMC41DQogMjQNCi0w',
+'LjUNCiAxNA0KMTM5OS41DQogMjQNCjU5OS41DQogIDANCkVORFNFQw0KICAwDQpTRUNUSU9ODQogIDINCk9CSkVDVFMNCiAgMA0KRElDVElPTkFSWQ0KICA1DQpBDQozMzANCjANCjEwMA0KQWNEYkRpY3Rpb25h',
+'cnkNCjI4MQ0KMQ0KICAzDQpBQ0FEX0NPTE9SDQozNTANCkINCiAgMw0KQUNBRF9HUk9VUA0KMzUwDQpDDQogIDMNCkFDQURfTEFZT1VUDQozNTANCkQNCiAgMw0KQUNBRF9NQVRFUklBTA0KMzUwDQpFDQogIDMN',
+'CkFDQURfTUxFQURFUlNUWUxFDQozNTANCkYNCiAgMw0KQUNBRF9NTElORVNUWUxFDQozNTANCjEwDQogIDMNCkFDQURfUExPVFNFVFRJTkdTDQozNTANCjExDQogIDMNCkFDQURfUExPVFNUWUxFTkFNRQ0KMzUw',
+'DQoxMg0KICAzDQpBQ0FEX1NDQUxFTElTVA0KMzUwDQoxNA0KICAzDQpBQ0FEX1RBQkxFU1RZTEUNCjM1MA0KMTUNCiAgMw0KQUNBRF9WSVNVQUxTVFlMRQ0KMzUwDQoxNg0KICAzDQpFWkRYRl9NRVRBDQozNTAN',
+'CjJEDQogIDMNCkFDQURfSU1BR0VfVkFSUw0KMzUwDQoyRg0KICAzDQpBQ0FEX0lNQUdFX0RJQ1QNCjM1MA0KMzANCiAgMA0KRElDVElPTkFSWQ0KICA1DQpCDQozMzANCkENCjEwMA0KQWNEYkRpY3Rpb25hcnkN',
+'CjI4MQ0KMQ0KICAwDQpESUNUSU9OQVJZDQogIDUNCkMNCjMzMA0KQQ0KMTAwDQpBY0RiRGljdGlvbmFyeQ0KMjgxDQoxDQogIDANCkRJQ1RJT05BUlkNCiAgNQ0KRA0KMzMwDQpBDQoxMDANCkFjRGJEaWN0aW9u',
+'YXJ5DQoyODENCjENCiAgMw0KTW9kZWwNCjM1MA0KMUENCiAgMw0KTGF5b3V0MQ0KMzUwDQoxRQ0KICAwDQpESUNUSU9OQVJZDQogIDUNCkUNCjMzMA0KQQ0KMTAwDQpBY0RiRGljdGlvbmFyeQ0KMjgxDQoxDQog',
+'IDMNCkJ5QmxvY2sNCjM1MA0KMUYNCiAgMw0KQnlMYXllcg0KMzUwDQoyMA0KICAzDQpHbG9iYWwNCjM1MA0KMjENCiAgMA0KRElDVElPTkFSWQ0KICA1DQpGDQozMzANCkENCjEwMA0KQWNEYkRpY3Rpb25hcnkN',
+'CjI4MQ0KMQ0KICAzDQpTdGFuZGFyZA0KMzUwDQoyQw0KICAwDQpESUNUSU9OQVJZDQogIDUNCjEwDQozMzANCkENCjEwMA0KQWNEYkRpY3Rpb25hcnkNCjI4MQ0KMQ0KICAzDQpTdGFuZGFyZA0KMzUwDQoyMg0K',
+'ICAwDQpESUNUSU9OQVJZDQogIDUNCjExDQozMzANCkENCjEwMA0KQWNEYkRpY3Rpb25hcnkNCjI4MQ0KMQ0KICAwDQpBQ0RCRElDVElPTkFSWVdERkxUDQogIDUNCjEyDQozMzANCkENCjEwMA0KQWNEYkRpY3Rp',
+'b25hcnkNCjI4MQ0KMQ0KICAzDQpOb3JtYWwNCjM1MA0KMTMNCjEwMA0KQWNEYkRpY3Rpb25hcnlXaXRoRGVmYXVsdA0KMzQwDQoxMw0KICAwDQpBQ0RCUExBQ0VIT0xERVINCiAgNQ0KMTMNCjMzMA0KMTINCiAg',
+'MA0KRElDVElPTkFSWQ0KICA1DQoxNA0KMzMwDQpBDQoxMDANCkFjRGJEaWN0aW9uYXJ5DQoyODENCjENCiAgMA0KRElDVElPTkFSWQ0KICA1DQoxNQ0KMzMwDQpBDQoxMDANCkFjRGJEaWN0aW9uYXJ5DQoyODEN',
+'CjENCiAgMA0KRElDVElPTkFSWQ0KICA1DQoxNg0KMzMwDQpBDQoxMDANCkFjRGJEaWN0aW9uYXJ5DQoyODENCjENCiAgMA0KTEFZT1VUDQogIDUNCjFBDQozMzANCkQNCjEwMA0KQWNEYlBsb3RTZXR0aW5ncw0K',
+'ICAxDQoNCiAgNA0KQTMNCiAgNg0KDQogNDANCjcuNQ0KIDQxDQoyMC4wDQogNDINCjcuNQ0KIDQzDQoyMC4wDQogNDQNCjQyMC4wDQogNDUNCjI5Ny4wDQogNDYNCjAuMA0KIDQ3DQowLjANCiA0OA0KMC4wDQog',
+'NDkNCjAuMA0KMTQwDQowLjANCjE0MQ0KMC4wDQoxNDINCjEuMA0KMTQzDQoxLjANCiA3MA0KMTAyNA0KIDcyDQoxDQogNzMNCjANCiA3NA0KNQ0KICA3DQoNCiA3NQ0KMTYNCiA3Ng0KMA0KIDc3DQoyDQogNzgN',
+'CjMwMA0KMTQ3DQoxLjANCjE0OA0KMC4wDQoxNDkNCjAuMA0KMTAwDQpBY0RiTGF5b3V0DQogIDENCk1vZGVsDQogNzANCjENCiA3MQ0KMA0KIDEwDQowLjANCiAyMA0KMC4wDQogMTENCjQyMC4wDQogMjENCjI5',
+'Ny4wDQogMTINCjAuMA0KIDIyDQowLjANCiAzMg0KMC4wDQogMTQNCjFlKzIwDQogMjQNCjFlKzIwDQogMzQNCjFlKzIwDQogMTUNCi0xZSsyMA0KIDI1DQotMWUrMjANCiAzNQ0KLTFlKzIwDQoxNDYNCjAuMA0K',
+'IDEzDQowLjANCiAyMw0KMC4wDQogMzMNCjAuMA0KIDE2DQoxLjANCiAyNg0KMC4wDQogMzYNCjAuMA0KIDE3DQowLjANCiAyNw0KMS4wDQogMzcNCjAuMA0KIDc2DQoxDQozMzANCjE3DQogIDANCkxBWU9VVA0K',
+'ICA1DQoxRQ0KMzMwDQpEDQoxMDANCkFjRGJQbG90U2V0dGluZ3MNCiAgMQ0KDQogIDQNCkEzDQogIDYNCg0KIDQwDQo3LjUNCiA0MQ0KMjAuMA0KIDQyDQo3LjUNCiA0Mw0KMjAuMA0KIDQ0DQo0MjAuMA0KIDQ1',
+'DQoyOTcuMA0KIDQ2DQowLjANCiA0Nw0KMC4wDQogNDgNCjAuMA0KIDQ5DQowLjANCjE0MA0KMC4wDQoxNDENCjAuMA0KMTQyDQoxLjANCjE0Mw0KMS4wDQogNzANCjANCiA3Mg0KMQ0KIDczDQowDQogNzQNCjUN',
+'CiAgNw0KDQogNzUNCjE2DQogNzYNCjANCiA3Nw0KMg0KIDc4DQozMDANCjE0Nw0KMS4wDQoxNDgNCjAuMA0KMTQ5DQowLjANCjEwMA0KQWNEYkxheW91dA0KICAxDQpMYXlvdXQxDQogNzANCjENCiA3MQ0KMQ0K',
+'IDEwDQowLjANCiAyMA0KMC4wDQogMTENCjQyMC4wDQogMjENCjI5Ny4wDQogMTINCjAuMA0KIDIyDQowLjANCiAzMg0KMC4wDQogMTQNCjFlKzIwDQogMjQNCjFlKzIwDQogMzQNCjFlKzIwDQogMTUNCi0xZSsy',
+'MA0KIDI1DQotMWUrMjANCiAzNQ0KLTFlKzIwDQoxNDYNCjAuMA0KIDEzDQowLjANCiAyMw0KMC4wDQogMzMNCjAuMA0KIDE2DQoxLjANCiAyNg0KMC4wDQogMzYNCjAuMA0KIDE3DQowLjANCiAyNw0KMS4wDQog',
+'MzcNCjAuMA0KIDc2DQoxDQozMzANCjFCDQogIDANCk1BVEVSSUFMDQogIDUNCjFGDQoxMDINCntBQ0FEX1JFQUNUT1JTDQozMzANCkUNCjEwMg0KfQ0KMzMwDQpFDQoxMDANCkFjRGJNYXRlcmlhbA0KICAxDQpC',
+'eUJsb2NrDQogIDINCg0KIDcwDQowDQogNDANCjEuMA0KIDcxDQoxDQogNDENCjEuMA0KIDkxDQotMTAyMzQxMDE3Nw0KIDQyDQoxLjANCiA3Mg0KMQ0KICAzDQoNCiA3Mw0KMQ0KIDc0DQoxDQogNzUNCjENCiA0',
+'NA0KMC41DQogNzMNCjANCiA0NQ0KMS4wDQogNDYNCjEuMA0KIDc3DQoxDQogIDQNCg0KIDc4DQoxDQogNzkNCjENCjE3MA0KMQ0KIDQ4DQoxLjANCjE3MQ0KMQ0KICA2DQoNCjE3Mg0KMQ0KMTczDQoxDQoxNzQN',
+'CjENCjE0MA0KMS4wDQoxNDENCjEuMA0KMTc1DQoxDQogIDcNCg0KMTc2DQoxDQoxNzcNCjENCjE3OA0KMQ0KMTQzDQoxLjANCjE3OQ0KMQ0KICA4DQoNCjI3MA0KMQ0KMjcxDQoxDQoyNzINCjENCjE0NQ0KMS4w',
+'DQoxNDYNCjEuMA0KMjczDQoxDQogIDkNCg0KMjc0DQoxDQoyNzUNCjENCjI3Ng0KMQ0KIDQyDQoxLjANCiA3Mg0KMQ0KICAzDQoNCiA3Mw0KMQ0KIDc0DQoxDQogNzUNCjENCiA5NA0KNjMNCiAgMA0KTUFURVJJ',
+'QUwNCiAgNQ0KMjANCjEwMg0Ke0FDQURfUkVBQ1RPUlMNCjMzMA0KRQ0KMTAyDQp9DQozMzANCkUNCjEwMA0KQWNEYk1hdGVyaWFsDQogIDENCkJ5TGF5ZXINCiAgMg0KDQogNzANCjANCiA0MA0KMS4wDQogNzEN',
+'CjENCiA0MQ0KMS4wDQogOTENCi0xMDIzNDEwMTc3DQogNDINCjEuMA0KIDcyDQoxDQogIDMNCg0KIDczDQoxDQogNzQNCjENCiA3NQ0KMQ0KIDQ0DQowLjUNCiA3Mw0KMA0KIDQ1DQoxLjANCiA0Ng0KMS4wDQog',
+'NzcNCjENCiAgNA0KDQogNzgNCjENCiA3OQ0KMQ0KMTcwDQoxDQogNDgNCjEuMA0KMTcxDQoxDQogIDYNCg0KMTcyDQoxDQoxNzMNCjENCjE3NA0KMQ0KMTQwDQoxLjANCjE0MQ0KMS4wDQoxNzUNCjENCiAgNw0K',
+'DQoxNzYNCjENCjE3Nw0KMQ0KMTc4DQoxDQoxNDMNCjEuMA0KMTc5DQoxDQogIDgNCg0KMjcwDQoxDQoyNzENCjENCjI3Mg0KMQ0KMTQ1DQoxLjANCjE0Ng0KMS4wDQoyNzMNCjENCiAgOQ0KDQoyNzQNCjENCjI3',
+'NQ0KMQ0KMjc2DQoxDQogNDINCjEuMA0KIDcyDQoxDQogIDMNCg0KIDczDQoxDQogNzQNCjENCiA3NQ0KMQ0KIDk0DQo2Mw0KICAwDQpNQVRFUklBTA0KICA1DQoyMQ0KMTAyDQp7QUNBRF9SRUFDVE9SUw0KMzMw',
+'DQpFDQoxMDINCn0NCjMzMA0KRQ0KMTAwDQpBY0RiTWF0ZXJpYWwNCiAgMQ0KR2xvYmFsDQogIDINCg0KIDcwDQowDQogNDANCjEuMA0KIDcxDQoxDQogNDENCjEuMA0KIDkxDQotMTAyMzQxMDE3Nw0KIDQyDQox',
+'LjANCiA3Mg0KMQ0KICAzDQoNCiA3Mw0KMQ0KIDc0DQoxDQogNzUNCjENCiA0NA0KMC41DQogNzMNCjANCiA0NQ0KMS4wDQogNDYNCjEuMA0KIDc3DQoxDQogIDQNCg0KIDc4DQoxDQogNzkNCjENCjE3MA0KMQ0K',
+'IDQ4DQoxLjANCjE3MQ0KMQ0KICA2DQoNCjE3Mg0KMQ0KMTczDQoxDQoxNzQNCjENCjE0MA0KMS4wDQoxNDENCjEuMA0KMTc1DQoxDQogIDcNCg0KMTc2DQoxDQoxNzcNCjENCjE3OA0KMQ0KMTQzDQoxLjANCjE3',
+'OQ0KMQ0KICA4DQoNCjI3MA0KMQ0KMjcxDQoxDQoyNzINCjENCjE0NQ0KMS4wDQoxNDYNCjEuMA0KMjczDQoxDQogIDkNCg0KMjc0DQoxDQoyNzUNCjENCjI3Ng0KMQ0KIDQyDQoxLjANCiA3Mg0KMQ0KICAzDQoN',
+'CiA3Mw0KMQ0KIDc0DQoxDQogNzUNCjENCiA5NA0KNjMNCiAgMA0KTUxJTkVTVFlMRQ0KICA1DQoyMg0KMTAyDQp7QUNBRF9SRUFDVE9SUw0KMzMwDQoxMA0KMTAyDQp9DQozMzANCjEwDQoxMDANCkFjRGJNbGlu',
+'ZVN0eWxlDQogIDINClN0YW5kYXJkDQogNzANCjANCiAgMw0KDQogNjINCjI1Ng0KIDUxDQo5MC4wDQogNTINCjkwLjANCiA3MQ0KMg0KIDQ5DQowLjUNCiA2Mg0KMjU2DQogIDYNCkJZTEFZRVINCiA0OQ0KLTAu',
+'NQ0KIDYyDQoyNTYNCiAgNg0KQllMQVlFUg0KICAwDQpNTEVBREVSU1RZTEUNCiAgNQ0KMkMNCjEwMg0Ke0FDQURfUkVBQ1RPUlMNCjMzMA0KRg0KMTAyDQp9DQozMzANCkYNCjEwMA0KQWNEYk1MZWFkZXJTdHls',
+'ZQ0KMTc5DQoyDQoxNzANCjINCjE3MQ0KMQ0KMTcyDQowDQogOTANCjINCiA0MA0KMC4wDQogNDENCjAuMA0KMTczDQoxDQogOTENCi0xMDU2OTY0NjA4DQogOTINCi0yDQoyOTANCjENCiA0Mg0KMi4wDQoyOTEN',
+'CjENCiA0Mw0KOC4wDQogIDMNClN0YW5kYXJkDQogNDQNCjQuMA0KMzAwDQoNCjM0Mg0KMjkNCjE3NA0KMQ0KMTc1DQoxDQoxNzYNCjANCjE3OA0KMQ0KIDkzDQotMTA1Njk2NDYwOA0KIDQ1DQo0LjANCjI5Mg0K',
+'MA0KMjk3DQowDQogNDYNCjQuMA0KIDk0DQotMTA1Njk2NDYwOA0KIDQ3DQoxLjANCiA0OQ0KMS4wDQoxNDANCjEuMA0KMjk0DQoxDQoxNDENCjAuMA0KMTc3DQowDQoxNDINCjEuMA0KMjk1DQowDQoyOTYNCjAN',
+'CjE0Mw0KMy43NQ0KMjcxDQowDQoyNzINCjkNCjI3Mw0KOQ0KICAwDQpESUNUSU9OQVJZDQogIDUNCjJEDQozMzANCkENCjEwMA0KQWNEYkRpY3Rpb25hcnkNCjI4MA0KMQ0KMjgxDQoxDQogIDMNCkNSRUFURURf',
+'QllfRVpEWEYNCjM1MA0KMkUNCiAgMw0KV1JJVFRFTl9CWV9FWkRYRg0KMzUwDQozNg0KICAwDQpESUNUSU9OQVJZVkFSDQogIDUNCjJFDQozMzANCjJEDQoxMDANCkRpY3Rpb25hcnlWYXJpYWJsZXMNCjI4MA0K',
+'MA0KICAxDQoxLjQuNCBAIDIwMjYtMDYtMjNUMTM6MzE6MTMuMjExNjE1KzAwOjAwDQogIDANClJBU1RFUlZBUklBQkxFUw0KICA1DQoyRg0KMTAyDQp7QUNBRF9SRUFDVE9SUw0KMzMwDQpBDQoxMDINCn0NCjMz',
+'MA0KQQ0KMTAwDQpBY0RiUmFzdGVyVmFyaWFibGVzDQogOTANCjANCiA3MA0KMA0KIDcxDQoxDQogNzINCjMNCiAgMA0KRElDVElPTkFSWQ0KICA1DQozMA0KMzMwDQpBDQoxMDANCkFjRGJEaWN0aW9uYXJ5DQoy',
+'ODENCjENCiAgMw0KYTJfdGVzdF83MG0ucG5nDQozNTANCjMxDQogIDANCklNQUdFREVGDQogIDUNCjMxDQoxMDINCntBQ0FEX1JFQUNUT1JTDQozMzANCjMwDQozMzANCjMzDQoxMDINCn0NCjMzMA0KMzANCjEw',
+'MA0KQWNEYlJhc3RlckltYWdlRGVmDQogOTANCjANCiAgMQ0KYTJfdGVzdF83MG0ucG5nDQogMTANCjE0MDAuMA0KIDIwDQo2MDAuMA0KIDExDQowLjAxDQogMjENCjAuMDENCjI4MA0KMQ0KMjgxDQowDQogIDAN',
+'CklNQUdFREVGX1JFQUNUT1INCiAgNQ0KMzMNCjMzMA0KMzINCjEwMA0KQWNEYlJhc3RlckltYWdlRGVmUmVhY3Rvcg0KIDkwDQoyDQozMzANCjMyDQogIDANCkRJQ1RJT05BUllWQVINCiAgNQ0KMzYNCjMzMA0K',
+'MkQNCjEwMA0KRGljdGlvbmFyeVZhcmlhYmxlcw0KMjgwDQowDQogIDENCjEuNC40IEAgMjAyNi0wNi0yM1QxMzozMToxMy4yODk1OTArMDA6MDANCiAgMA0KRU5EU0VDDQogIDANCkVPRg0K'
+].join('');
+const decode=typeof atob==='function'?atob:(x=>Buffer.from(x,'base64').toString('binary'));
+const tags=decode(b64).replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+if(tags[tags.length-1]==='')tags.pop();
+const codeAt=i=>String(tags[i*2]||'').trim(),valAt=i=>String(tags[i*2+1]||'');
+const pairCount=Math.floor(tags.length/2);
+function findEntity(type,handle){for(let i=0;i<pairCount;i++){if(codeAt(i)==='0'&&valAt(i)===type){let end=i+1,h='';while(end<pairCount&&codeAt(end)!=='0'){if(codeAt(end)==='5')h=valAt(end);end++;}if(h.toUpperCase()===handle.toUpperCase())return[i,end];}}return[-1,-1];}
+function setNth(start,end,code,vals){let k=0;for(let i=start+1;i<end;i++){if(codeAt(i)===code){if(k<vals.length)tags[i*2+1]=String(vals[k]);k++;}}}
+function setFirst(start,end,code,val){setNth(start,end,code,[val]);}
+function setHeaderVar(name,code,val){for(let i=0;i<pairCount-2;i++){if(codeAt(i)==='9'&&valAt(i)===name){for(let j=i+1;j<Math.min(pairCount,i+8);j++){if(codeAt(j)===code){tags[j*2+1]=String(val);return;}}}}}
+setHeaderVar('$INSUNITS','70','4');
+let r=findEntity('IMAGE','32');
+if(r[0]>=0){setFirst(r[0],r[1],'11',f(mmPerPx));setFirst(r[0],r[1],'21','0');setFirst(r[0],r[1],'31','0');setFirst(r[0],r[1],'12','0');setFirst(r[0],r[1],'22',f(mmPerPx));setFirst(r[0],r[1],'32','0');setFirst(r[0],r[1],'13',f(pxW));setFirst(r[0],r[1],'23',f(pxH));setNth(r[0],r[1],'14',['-0.5',f(pxW-.5)]);setNth(r[0],r[1],'24',['-0.5',f(pxH-.5)]);}
+r=findEntity('IMAGEDEF','31');
+if(r[0]>=0){setFirst(r[0],r[1],'1',file);setFirst(r[0],r[1],'10',f(pxW));setFirst(r[0],r[1],'20',f(pxH));}
+r=findEntity('DICTIONARY','30');
+if(r[0]>=0)setFirst(r[0],r[1],'3',file);
+return tags.join('\r\n')+'\r\n';}
+
+clearM(){this.mH.forEach(h=>{this.scene.remove(h);if(h.geometry)h.geometry.dispose();if(h.material)h.material.dispose();});this.mH=[];this.mPts=[];document.getElementById('measureBox').classList.remove('visible');}
+animate(){requestAnimationFrame(()=>this.animate());this.fc++;const now=performance.now(),dt=Math.min((now-this.frameT)/1000,.05);this.frameT=now;if(this.walkMode)this.updateWalk(dt);if(now-this.lt>=1000){document.getElementById('fpsVal').textContent=this.fc;this.fc=0;this.lt=now;}this.rend.render(this.scene,this.cam);this.drawHUD();if(this.vcCam&&this.vcRend){const dir=new THREE.Vector3();this.cam.getWorldDirection(dir);this.vcCam.position.copy(dir.multiplyScalar(-4));this.vcCam.lookAt(0,0,0);this.vcRend.render(this.vcScene,this.vcCam);}}
+}
+new App();
+</script>
+</body>
+</html>
