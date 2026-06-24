@@ -1,4 +1,3 @@
-```markdown
 # A2 PointCloud Draft
 
 ![A2 PointCloud Draft screenshot](./screen.PNG)
@@ -249,9 +248,9 @@ Microsoft Edge
 ## Repository contents
 
 ```text
-PointCloudViewer.html   Main single-file application
-screen.PNG              Program screenshot
-README.md               Project description
+A2 PointCloud Draft.html   Main single-file application
+screen.PNG                 Program screenshot
+README.md                  Project description
 ```
 
 ## Author
@@ -259,4 +258,3 @@ README.md               Project description
 A2 Engineering / A2 Blog
 
 Telegram: https://t.me/a2blog
-```
